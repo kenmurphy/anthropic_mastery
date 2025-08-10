@@ -1,0 +1,33 @@
+# Environment and Configuration Files
+.env
+.env.*
+config.py
+
+# Database and Data Files
+mongodb_data/
+*.db
+*.sqlite*
+data/
+
+# Docker and Infrastructure
+docker-compose.yml
+Dockerfile*
+.dockerignore
+
+# Scripts and Utilities
+*.sh
+*_script.py
+add_user.py
+test_setup.py
+
+# Package Management
+requirements.txt
+
+# Logs and Temporary Files
+*.log
+logs/
+tmp/
+temp/
+
+# Init and Setup Files
+init-mongo.js

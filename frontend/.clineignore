@@ -1,0 +1,63 @@
+# Build and Distribution
+dist/
+dist-ssr/
+build/
+.next/
+out/
+
+# Dependencies
+node_modules/
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+
+# Configuration Files
+vite.config.ts
+tsconfig*.json
+tailwind.config.js
+postcss.config.js
+eslint.config.js
+
+# Environment Files
+.env
+.env.*
+*.local
+
+# Static Assets (focus on code, not assets)
+public/
+*.svg
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.ico
+*.webp
+
+# Style Files (focus on component logic)
+*.css
+*.scss
+*.sass
+*.less
+
+# Generated and Cache Files
+.vite/
+.cache/
+.temp/
+.tmp/
+
+# IDE and Editor
+.vscode/
+.idea/
+
+# Logs
+*.log
+logs/
+
+# Test Coverage
+coverage/
+.nyc_output/
+
+# OS Files
+.DS_Store
+Thumbs.db
