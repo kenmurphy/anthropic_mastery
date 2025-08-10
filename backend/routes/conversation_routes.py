@@ -135,6 +135,39 @@ def get_conversation(conversation_id):
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+@conversation_bp.route('/<conversation_id>/stream-response', methods=['POST'])
+def stream_response(conversation_id):
+    """
+    Stream AI response for existing conversation without adding a new user message
+    
+    This is used for the first AI response after creating a conversation,
+    where the user message is already in the conversation.
+    
+    Response: Server-Sent Events stream with AI response
+    """
+    try:
+        # Get conversation
+        conversation = ConversationService.get_conversation_by_id(conversation_id)
+        if not conversation:
+            return jsonify({'error': 'Conversation not found'}), 404
+        
+        # Stream AI response directly (no new user message)
+        def response_generator():
+            # Stream AI response
+            for chunk in conversation_service.stream_ai_response(conversation):
+                yield chunk
+            
+            # Update conversation title if needed (async)
+            try:
+                ConversationService.update_conversation_title(conversation)
+            except Exception as e:
+                print(f"Failed to update conversation title: {e}")
+        
+        return create_sse_response(response_generator())
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 @conversation_bp.route('/<conversation_id>/messages', methods=['POST'])
 def add_message(conversation_id):
     """
