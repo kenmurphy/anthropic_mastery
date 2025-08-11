@@ -1,0 +1,48 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Debug Flask App",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/backend/app.py",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}/backend",
+            "python": "${workspaceFolder}/backend/env/bin/python",
+            "env": {
+                "FLASK_ENV": "development",
+                "FLASK_DEBUG": "true",
+                "PYTHONPATH": "${workspaceFolder}/backend"
+            },
+            "args": [],
+            "jinja": true,
+            "justMyCode": false,
+            "stopOnEntry": false,
+            "showReturnValue": true,
+            "subProcess": true,
+            "timeout": 30000
+        },
+        {
+            "name": "Debug Flask App (No Reload)",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/backend/app.py",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}/backend",
+            "python": "${workspaceFolder}/backend/env/bin/python",
+            "env": {
+                "FLASK_ENV": "development",
+                "FLASK_DEBUG": "true",
+                "FLASK_RUN_RELOAD": "false",
+                "PYTHONPATH": "${workspaceFolder}/backend"
+            },
+            "args": [],
+            "jinja": true,
+            "justMyCode": false,
+            "stopOnEntry": false,
+            "showReturnValue": true,
+            "subProcess": false,
+            "timeout": 30000
+        }
+    ]
+}

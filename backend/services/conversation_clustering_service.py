@@ -10,6 +10,8 @@ from models.cluster import ConversationCluster, ClusteringRun
 from services.message_analysis_service import MessageAnalysisService
 from config import Config
 from sklearn.metrics import silhouette_score
+from sklearn.preprocessing import normalize
+from sklearn.metrics import calinski_harabasz_score
 
 logger = logging.getLogger(__name__)
 
@@ -22,7 +24,7 @@ class ConversationClusteringService:
         self.auto_k = getattr(Config, "CLUSTERING_AUTO_K", True)
         self.min_k = getattr(Config, "CLUSTERING_MIN_K", 2)
         self.max_k = getattr(Config, "CLUSTERING_MAX_K", 12)
-        self.n_clusters = None if self.auto_k else getattr(Config, "CLUSTERING_K", 5)
+        self.n_clusters = 5 if self.auto_k else getattr(Config, "CLUSTERING_K", 5)
         self.cluster_centers = None
     
     def cluster_all_conversations(self) -> bool:
@@ -135,7 +137,11 @@ class ConversationClusteringService:
         try:
             # Extract embeddings
             embeddings = np.array([conv['embedding'] for conv in conversation_data])
-            
+
+            normalize_for_cosine = getattr(Config, "CLUSTERING_NORMALIZE_EMBEDDINGS", True)
+            if normalize_for_cosine:
+                embeddings = normalize(embeddings)
+
             # Perform k-means clustering
             kmeans = KMeans(n_clusters=self.n_clusters, random_state=42, n_init=10)
             cluster_assignments = kmeans.fit_predict(embeddings)
@@ -379,22 +385,39 @@ Format as JSON: {{"title": "...", "description": "..."}}"""
         if n < 2:
             return None
         k_min = max(2, min(self.min_k, n))
-        k_max = min(self.max_k, n - 1)
+        k_max = min(self.max_k, n)
         if k_max < 2 or k_min > k_max:
             return None
 
-        best_k, best_score = None, -1.0
+        # Configurable knobs
+        prefer_delta = 0.01  # favor larger k within this margin
+
+        X = embeddings
+        X = normalize(X)
+
+        best_k, best_sil = None, -1.0
+        best_ch = -np.inf
+
         for k in range(k_min, k_max + 1):
             try:
                 km = KMeans(n_clusters=k, random_state=42, n_init=10)
-                labels = km.fit_predict(embeddings)
-                # Skip degenerate solutions
+                labels = km.fit_predict(X)
                 if len(set(labels)) < 2:
                     continue
-                score = silhouette_score(embeddings, labels, metric="cosine")
-                if score > best_score:
-                    best_score = score
-                    best_k = k
+
+                sil = silhouette_score(X, labels, metric="cosine")
+                ch = calinski_harabasz_score(X, labels)
+
+                # Update if significantly better
+                if sil > best_sil + prefer_delta or best_k is None:
+                    best_k, best_sil, best_ch = k, sil, ch
+                else:
+                    # If within margin, prefer larger k; break ties with CH
+                    if sil >= best_sil - prefer_delta:
+                        if k > best_k:
+                            best_k, best_sil, best_ch = k, sil, ch
+                        elif abs(sil - best_sil) <= 1e-6 and ch > best_ch:
+                            best_k, best_sil, best_ch = k, sil, ch
             except Exception as e:
                 logger.warning(f"Silhouette eval failed for k={k}: {e}")
         return best_k

@@ -71,6 +71,32 @@ class ConversationCluster(Document):
             'updated_at': format_datetime(self.updated_at)
         }
     
+    def to_study_guide_dict(self):
+        """Convert to unified study guide format"""
+        def format_datetime(dt):
+            """Helper to safely format datetime objects"""
+            if dt is None:
+                return None
+            if isinstance(dt, datetime):
+                return dt.isoformat()
+            if isinstance(dt, str):
+                return dt
+            return str(dt)
+        
+        return {
+            'id': self.cluster_id,
+            'type': 'cluster',
+            'label': self.label,
+            'description': self.description,
+            'conversation_count': self.get_conversation_count(),
+            'conversation_ids': self.conversation_ids,
+            'key_concepts': self.key_concepts,
+            'created_at': format_datetime(self.created_at),
+            'updated_at': format_datetime(self.updated_at),
+            # Cluster-specific fields
+            'cluster_id': self.cluster_id
+        }
+    
     def __str__(self):
         return f"ConversationCluster(cluster_id={self.cluster_id}, label={self.label})"
 

@@ -3,11 +3,13 @@ import './App.css'
 import Sidebar from './components/Sidebar'
 import Conversation from './components/Conversation'
 import ClaudeMastery from './components/ClaudeMastery'
+import CourseView from './components/CourseView'
 
 function App() {
   const [currentConversationId, setCurrentConversationId] = useState<string | null>(null)
   const [refreshConversations, setRefreshConversations] = useState<(() => void) | null>(null)
-  const [currentTab, setCurrentTab] = useState<'conversation' | 'mastery'>('conversation')
+  const [currentTab, setCurrentTab] = useState<'conversation' | 'mastery' | 'course'>('conversation')
+  const [currentCourseId, setCurrentCourseId] = useState<string | null>(null)
 
   const handleStartNewChat = () => {
     setCurrentConversationId(null)
@@ -21,6 +23,16 @@ function App() {
 
   const handleClaudeMasteryClick = () => {
     setCurrentTab('mastery')
+  }
+
+  const handleViewCourse = (courseId: string) => {
+    setCurrentCourseId(courseId)
+    setCurrentTab('course')
+  }
+
+  const handleBackToMastery = () => {
+    setCurrentTab('mastery')
+    setCurrentCourseId(null)
   }
 
   const handleRefreshReady = useCallback((refreshFn: () => void) => {
@@ -49,8 +61,15 @@ function App() {
           conversationId={currentConversationId}
           onNewConversationCreated={handleNewConversationCreated}
         />
+      ) : currentTab === 'course' && currentCourseId ? (
+        <CourseView 
+          courseId={currentCourseId}
+          onBack={handleBackToMastery}
+        />
       ) : (
-        <ClaudeMastery />
+        <ClaudeMastery 
+          onViewCourse={handleViewCourse}
+        />
       )}
     </div>
   )

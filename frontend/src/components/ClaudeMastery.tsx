@@ -1,11 +1,26 @@
 import React, { useState, useEffect } from 'react'
 
-interface Cluster {
-  cluster_id: string;
+interface StudyGuide {
+  id: string;
+  type: 'course' | 'cluster';
   label: string;
   description: string;
   conversation_count: number;
   key_concepts: string[];
+  created_at: string;
+  
+  // Course-specific fields (only present when type === 'course')
+  progress?: number;
+  concepts_detail?: CourseConcept[];
+  
+  // Cluster-specific fields (only present when type === 'cluster')
+  cluster_id?: string;
+}
+
+interface CourseConcept {
+  title: string;
+  difficulty_level: 'beginner' | 'medium' | 'advanced';
+  status: 'not_started' | 'reviewed' | 'not_interested' | 'already_know';
 }
 
 interface ClusteringStatus {
@@ -16,29 +31,33 @@ interface ClusteringStatus {
   total_clusters: number;
 }
 
-function ClaudeMastery() {
-  const [clusters, setClusters] = useState<Cluster[]>([]);
+interface ClaudeMasteryProps {
+  onViewCourse: (courseId: string) => void;
+}
+
+function ClaudeMastery({ onViewCourse }: ClaudeMasteryProps) {
+  const [studyGuides, setStudyGuides] = useState<StudyGuide[]>([]);
   const [status, setStatus] = useState<ClusteringStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    fetchClusteringData();
+    fetchStudyData();
   }, []);
 
-  const fetchClusteringData = async () => {
+  const fetchStudyData = async () => {
     try {
       setLoading(true);
       
-      // Fetch clusters and status in parallel
-      const [clustersResponse, statusResponse] = await Promise.all([
-        fetch('http://localhost:5000/api/clusters'),
+      // Fetch study guides and status in parallel
+      const [studyGuidesResponse, statusResponse] = await Promise.all([
+        fetch('http://localhost:5000/api/study-guides'),
         fetch('http://localhost:5000/api/clustering/status')
       ]);
 
-      if (clustersResponse.ok) {
-        const clustersData = await clustersResponse.json();
-        setClusters(clustersData.clusters || []);
+      if (studyGuidesResponse.ok) {
+        const studyGuidesData = await studyGuidesResponse.json();
+        setStudyGuides(studyGuidesData.study_guides || []);
       }
 
       if (statusResponse.ok) {
@@ -48,8 +67,8 @@ function ClaudeMastery() {
 
       setError(null);
     } catch (err) {
-      setError('Failed to load clustering data. Make sure the backend server is running.');
-      console.error('Error fetching clustering data:', err);
+      setError('Failed to load study data. Make sure the backend server is running.');
+      console.error('Error fetching study data:', err);
     } finally {
       setLoading(false);
     }
@@ -64,7 +83,7 @@ function ClaudeMastery() {
 
       if (response.ok) {
         // Refresh data after clustering
-        await fetchClusteringData();
+        await fetchStudyData();
       } else {
         setError('Failed to run clustering. Check if you have enough conversations.');
       }
@@ -73,6 +92,34 @@ function ClaudeMastery() {
       console.error('Error triggering clustering:', err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleStartStudy = async (studyGuide: StudyGuide) => {
+    try {
+      if (studyGuide.type === 'course') {
+        // Already a course, navigate directly
+        onViewCourse(studyGuide.id);
+        return;
+      }
+
+      // Create course from cluster
+      const response = await fetch(`http://localhost:5000/api/study-guides/${studyGuide.id}/start`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: studyGuide.type })
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        // Navigate to the newly created course
+        onViewCourse(data.course.id);
+      } else {
+        setError(data.error || 'Failed to start study guide');
+      }
+    } catch (err) {
+      setError('Failed to start study guide');
+      console.error('Error starting study guide:', err);
     }
   };
   return (
@@ -117,7 +164,7 @@ function ClaudeMastery() {
               </div>
               <p className="text-red-700 text-sm mt-1">{error}</p>
               <button 
-                onClick={fetchClusteringData}
+                onClick={fetchStudyData}
                 className="mt-2 text-red-600 text-sm font-medium hover:text-red-700"
               >
                 Try Again
@@ -155,16 +202,16 @@ function ClaudeMastery() {
             </div>
           )}
 
-          {/* Study Guide Clusters */}
-          {clusters.length > 0 && !loading && (
+          {/* Study Guide Topics */}
+          {studyGuides.length > 0 && !loading && (
             <div className="mb-8">
               <div className="flex items-center justify-between mb-6">
                 <h3 className="text-xl font-semibold text-gray-900">Your Study Guide Topics</h3>
-                <span className="text-sm text-gray-500">{clusters.length} topic clusters found</span>
+                <span className="text-sm text-gray-500">{studyGuides.length} study guides available</span>
               </div>
               
               <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {clusters.map((cluster, index) => {
+                {studyGuides.map((guide, index) => {
                   const colors = [
                     'bg-blue-100 text-blue-800',
                     'bg-green-100 text-green-800', 
@@ -175,29 +222,49 @@ function ClaudeMastery() {
                   const colorClass = colors[index % colors.length];
                   
                   return (
-                    <div key={cluster.cluster_id} className="bg-white rounded-lg border border-gray-200 p-6 hover:shadow-md transition-shadow">
+                    <div key={guide.id} className="bg-white rounded-lg border border-gray-200 p-6 hover:shadow-md transition-shadow">
                       <div className="flex items-center gap-3 mb-3">
                         <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${colorClass}`}>
-                          <span className="text-lg font-bold">{index + 1}</span>
+                          {guide.type === 'course' ? (
+                            <span className="text-lg">📚</span>
+                          ) : (
+                            <span className="text-lg font-bold">{index + 1}</span>
+                          )}
                         </div>
-                        <h3 className="font-semibold text-gray-900">{cluster.label}</h3>
+                        <h3 className="font-semibold text-gray-900">{guide.label}</h3>
                       </div>
                       
+                      {/* Progress indicator for courses */}
+                      {guide.type === 'course' && guide.progress !== undefined && (
+                        <div className="mb-3">
+                          <div className="flex justify-between text-xs text-gray-500 mb-1">
+                            <span>Progress</span>
+                            <span>{guide.progress}%</span>
+                          </div>
+                          <div className="w-full bg-gray-200 rounded-full h-2">
+                            <div 
+                              className="bg-blue-600 h-2 rounded-full" 
+                              style={{ width: `${guide.progress}%` }}
+                            ></div>
+                          </div>
+                        </div>
+                      )}
+                      
                       <p className="text-gray-600 text-sm mb-4">
-                        {cluster.description}
+                        {guide.description}
                       </p>
                       
                       <div className="mb-4">
                         <div className="text-xs text-gray-500 mb-2">Key Concepts:</div>
                         <div className="flex flex-wrap gap-1">
-                          {cluster.key_concepts.slice(0, 3).map((concept, i) => (
+                          {guide.key_concepts.slice(0, 3).map((concept, i) => (
                             <span key={i} className="bg-gray-100 text-gray-700 px-2 py-1 rounded text-xs">
                               {concept}
                             </span>
                           ))}
-                          {cluster.key_concepts.length > 3 && (
+                          {guide.key_concepts.length > 3 && (
                             <span className="text-gray-500 text-xs">
-                              +{cluster.key_concepts.length - 3} more
+                              +{guide.key_concepts.length - 3} more
                             </span>
                           )}
                         </div>
@@ -205,10 +272,13 @@ function ClaudeMastery() {
                       
                       <div className="flex items-center justify-between">
                         <span className="text-sm text-gray-500">
-                          {cluster.conversation_count} conversation{cluster.conversation_count !== 1 ? 's' : ''}
+                          {guide.conversation_count} conversation{guide.conversation_count !== 1 ? 's' : ''}
                         </span>
-                        <button className="text-blue-600 text-sm font-medium hover:text-blue-700">
-                          Study This Topic →
+                        <button 
+                          onClick={() => handleStartStudy(guide)}
+                          className="text-blue-600 text-sm font-medium hover:text-blue-700"
+                        >
+                          {guide.type === 'course' ? 'Continue Course →' : 'Study This Topic →'}
                         </button>
                       </div>
                     </div>
@@ -219,7 +289,7 @@ function ClaudeMastery() {
           )}
 
           {/* Empty State */}
-          {clusters.length === 0 && !loading && !error && (
+          {studyGuides.length === 0 && !loading && !error && (
             <div className="text-center py-12">
               <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
                 <span className="text-2xl">🤖</span>
@@ -250,13 +320,13 @@ function ClaudeMastery() {
               </div>
               <div className="text-center">
                 <div className="text-2xl font-bold text-green-600">
-                  {clusters.reduce((sum, cluster) => sum + cluster.key_concepts.length, 0)}
+                  {studyGuides.reduce((sum, guide) => sum + guide.key_concepts.length, 0)}
                 </div>
                 <div className="text-sm text-gray-600">Technical Concepts</div>
               </div>
               <div className="text-center">
                 <div className="text-2xl font-bold text-purple-600">
-                  {status?.total_clusters || 0}
+                  {studyGuides.length}
                 </div>
                 <div className="text-sm text-gray-600">Study Topics</div>
               </div>

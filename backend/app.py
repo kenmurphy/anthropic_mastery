@@ -2,8 +2,13 @@ from flask import Flask, jsonify
 from flask_cors import CORS
 from mongoengine import connect
 from config import config
-from routes import conversation_bp, clustering_bp
+from routes import conversation_bp, clustering_bp, study_guide_bp
 import os
+import sys
+
+def is_debugger_attached():
+    """Check if we're running under a debugger"""
+    return hasattr(sys, 'gettrace') and sys.gettrace() is not None
 
 def create_app(config_name=None):
     """Application factory pattern"""
@@ -31,6 +36,7 @@ def create_app(config_name=None):
     # Register blueprints
     app.register_blueprint(conversation_bp)
     app.register_blueprint(clustering_bp)
+    app.register_blueprint(study_guide_bp)
     
     # Global error handlers
     @app.errorhandler(404)
@@ -73,7 +79,24 @@ if __name__ == '__main__':
     port = app.config.get('APP_PORT', 5000)
     debug = app.config.get('DEBUG', True)
     
+    # Check if we're running under a debugger
+    debugger_attached = is_debugger_attached()
+    
+    # Disable Flask's reloader when debugging to prevent conflicts
+    reloader_env = os.environ.get('FLASK_RUN_RELOAD')
+    if reloader_env is not None:
+        use_reloader = reloader_env.lower() == 'true'
+    elif debugger_attached:
+        use_reloader = False
+    else:
+        use_reloader = debug
+    
     print(f"Starting Claude Backend on {host}:{port}")
     print(f"Debug mode: {debug}")
+    print(f"Debugger attached: {debugger_attached}")
+    print(f"Using reloader: {use_reloader}")
     
-    app.run(host=host, port=port, debug=debug)
+    if debugger_attached:
+        print("VSCode debugger detected - disabling Flask reloader for better debugging experience")
+    
+    app.run(host=host, port=port, debug=debug, use_reloader=use_reloader)

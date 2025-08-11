@@ -124,6 +124,7 @@ def get_conversation(conversation_id):
     """
     try:
         # Get conversation
+        print('getting conversation by id')
         conversation = ConversationService.get_conversation_by_id(conversation_id)
         if not conversation:
             return jsonify({'error': 'Conversation not found'}), 404
