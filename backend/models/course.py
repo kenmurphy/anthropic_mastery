@@ -14,13 +14,19 @@ class CourseConcept(EmbeddedDocument):
         choices=['not_started', 'reviewed', 'not_interested', 'already_know'], 
         default='not_started'
     )
+    type = StringField(
+        required=True,
+        choices=['original', 'related'],
+        default='original'
+    )
     
     def to_dict(self):
         """Convert concept to dictionary"""
         return {
             'title': self.title,
             'difficulty_level': self.difficulty_level,
-            'status': self.status
+            'status': self.status,
+            'type': self.type
         }
 
 class Course(Document):

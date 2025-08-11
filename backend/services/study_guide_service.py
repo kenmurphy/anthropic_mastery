@@ -1,8 +1,21 @@
 from models.cluster import ConversationCluster
 from models.course import Course, CourseConcept
+from services.anthropic_service import AnthropicService
 
 class StudyGuideService:
     """Service for managing unified study guides (courses + available clusters)"""
+    
+    @staticmethod
+    def _deduplicate_concepts_by_title(concepts):
+        """Remove duplicate concepts by title (case-insensitive), keeping first occurrence"""
+        seen_titles = set()
+        deduplicated = []
+        for concept in concepts:
+            title_lower = concept.title.lower()
+            if title_lower not in seen_titles:
+                seen_titles.add(title_lower)
+                deduplicated.append(concept)
+        return deduplicated
     
     @staticmethod
     def get_study_guides():
@@ -49,19 +62,54 @@ class StudyGuideService:
                 if existing_course:
                     return existing_course
                 
-                # Create new course
+                # Create original concepts from cluster
+                original_concepts = [
+                    CourseConcept(
+                        title=concept,
+                        difficulty_level='medium',
+                        status='not_started',
+                        type='original'
+                    ) for concept in cluster.key_concepts
+                ]
+                
+                # Deduplicate original concepts (in case cluster has duplicates)
+                original_concepts = StudyGuideService._deduplicate_concepts_by_title(original_concepts)
+                
+                # Generate adjacent concepts using Anthropic API
+                try:
+                    anthropic_service = AnthropicService()
+                    adjacent_concept_data = anthropic_service.generate_adjacent_concepts(
+                        existing_concepts=cluster.key_concepts,
+                        course_description=cluster.description
+                    )
+                    
+                    # Create adjacent concepts
+                    adjacent_concepts = [
+                        CourseConcept(
+                            title=concept_data['title'],
+                            difficulty_level=concept_data['difficulty_level'],
+                            status='not_started',
+                            type='related'
+                        ) for concept_data in adjacent_concept_data
+                    ]
+                    
+                    print(f"Generated {len(adjacent_concepts)} adjacent concepts for course: {cluster.label}")
+                    
+                except Exception as e:
+                    print(f"Error generating adjacent concepts: {e}")
+                    adjacent_concepts = []
+                
+                # Combine concepts and apply final deduplication (original concepts come first, so they take priority)
+                all_concepts = original_concepts + adjacent_concepts
+                deduplicated_concepts = StudyGuideService._deduplicate_concepts_by_title(all_concepts)
+                
+                # Create new course with deduplicated concepts
                 course = Course(
                     label=cluster.label,
                     description=cluster.description,
                     conversation_ids=cluster.conversation_ids,
                     source_cluster_id=item_id,
-                    concepts=[
-                        CourseConcept(
-                            title=concept,
-                            difficulty_level='medium',
-                            status='not_started'
-                        ) for concept in cluster.key_concepts
-                    ]
+                    concepts=deduplicated_concepts
                 )
                 course.save()
                 return course

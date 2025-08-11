@@ -503,6 +503,85 @@ Please provide your analysis:"""
             print(f"Error generating conversation title: {e}")
             return "Conversation"
     
+    def generate_adjacent_concepts(self, existing_concepts: List[str], course_description: str) -> List[Dict[str, str]]:
+        """
+        Generate related concepts using Anthropic API
+        
+        Args:
+            existing_concepts: List of current course concept titles
+            course_description: Description of the course for context
+            
+        Returns:
+            List of dictionaries with 'title' and 'difficulty_level' keys
+        """
+        try:
+            # Build prompt for adjacent concept generation
+            concepts_text = "\n".join([f"- {concept}" for concept in existing_concepts])
+            
+            system_prompt = """You are an AI learning assistant that helps identify related concepts for educational courses.
+
+Given a course description and existing concepts, suggest 5-8 adjacent concepts that would complement the learning journey. These should be:
+1. Related to the existing concepts but not duplicates
+2. At appropriate difficulty levels (beginner, medium, advanced)
+3. Valuable for deepening understanding of the subject area
+4. Practical and actionable learning topics
+
+Respond with ONLY a valid JSON array in this format:
+[
+  {
+    "title": "Concept Title",
+    "difficulty_level": "beginner|medium|advanced"
+  }
+]
+
+Do not include any explanations or additional text outside the JSON."""
+
+            user_prompt = f"""Course Description: {course_description}
+
+Existing Concepts:
+{concepts_text}
+
+Generate 5-8 related concepts that would complement this learning path:"""
+
+            response = self.client.messages.create(
+                model=self.models['research'],
+                max_tokens=800,
+                temperature=0.7,
+                system=system_prompt,
+                messages=[{"role": "user", "content": user_prompt}]
+            )
+            
+            # Parse the JSON response
+            response_text = response.content[0].text.strip()
+            
+            # Try to extract JSON if there's extra text
+            import json
+            import re
+            
+            # Look for JSON array pattern
+            json_match = re.search(r'\[.*\]', response_text, re.DOTALL)
+            if json_match:
+                response_text = json_match.group(0)
+            
+            adjacent_concepts = json.loads(response_text)
+            
+            # Validate the response structure
+            validated_concepts = []
+            for concept in adjacent_concepts:
+                if isinstance(concept, dict) and 'title' in concept and 'difficulty_level' in concept:
+                    # Validate difficulty level
+                    if concept['difficulty_level'] in ['beginner', 'medium', 'advanced']:
+                        validated_concepts.append({
+                            'title': concept['title'][:200],  # Truncate to max length
+                            'difficulty_level': concept['difficulty_level']
+                        })
+            
+            return validated_concepts[:8]  # Limit to 8 concepts max
+            
+        except Exception as e:
+            print(f"Error generating adjacent concepts: {e}")
+            return []  # Return empty list on error
+    
     def truncate_context(self, context: str, max_tokens: int = 3000) -> str:
         """Truncate context to fit within token limits"""
         estimated_tokens = self.count_tokens(context)
