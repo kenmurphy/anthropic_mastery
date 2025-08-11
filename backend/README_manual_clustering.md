@@ -103,7 +103,7 @@ The clustering system uses these environment variables (set in `.env`):
 BACKGROUND_CLUSTERING_ENABLED=true
 
 # Number of unprocessed messages to trigger clustering
-CLUSTERING_MESSAGE_THRESHOLD=3
+CLUSTERING_MESSAGE_THRESHOLD=1
 
 # Minutes since last clustering to trigger new run
 CLUSTERING_TIME_THRESHOLD_MINUTES=30

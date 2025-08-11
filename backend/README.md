@@ -1,43 +1,93 @@
-# Claude Backend
+# Anthropic Mastery Backend
 
-A Flask-based backend application with MongoDB using a layered architecture.
+A Flask-based backend for the Anthropic Mastery platform - an AI conversation analysis and learning system that helps users build domain expertise from their AI interactions.
+
+## Project Overview
+
+Anthropic Mastery addresses the challenge of users becoming dependent on AI assistance without building domain expertise. The system analyzes conversation patterns from AI interactions to create structured learning experiences that build long-term mastery.
+
+### Core Features
+
+- **Conversation Intelligence**: AI-powered analysis of conversation patterns to identify knowledge gaps and learning opportunities
+- **Semantic Clustering**: Automatic grouping of conversations into thematic projects and learning areas
+- **Real-time Streaming**: Claude integration with Server-Sent Events for responsive chat experience
+- **Learning Analytics**: Background analysis of technical concepts and conversation patterns
+- **Pattern Recognition**: Detection of repeated questions and dependency mapping
 
 ## Architecture
 
-The application follows a layered architecture pattern:
+The application follows a production-ready layered architecture:
 
-1. **API Routes** (`routes/`) - Handle HTTP requests and responses
-2. **DTO Layer** (`dto/`) - Data Transfer Objects for request/response validation and serialization
-3. **Services** (`services/`) - Business logic layer
-4. **Models** (`models/`) - MongoEngine models for database interaction
+```
+Frontend (React/TypeScript)
+    ↓ HTTP/REST API + Server-Sent Events
+Backend (Flask/Python)
+    ↓ Anthropic API Integration
+    ↓ MongoEngine ODM
+Database (MongoDB)
+```
+
+### Backend Layers
+
+1. **Routes Layer** (`routes/`) - HTTP request handling and streaming endpoints
+2. **DTO Layer** (`dto/`) - Data Transfer Objects for validation and serialization
+3. **Services Layer** (`services/`) - Business logic for conversation analysis and AI integration
+4. **Models Layer** (`models/`) - Data models for conversations, messages, and learning analytics
 
 ## Project Structure
 
 ```
 backend/
-├── app.py                 # Main Flask application
-├── config.py             # Configuration settings
-├── requirements.txt      # Python dependencies
-├── docker-compose.yml    # MongoDB Docker setup
-├── init-mongo.js        # MongoDB initialization script
-├── .env                 # Environment variables
-├── models/              # MongoEngine models
+├── app.py                              # Main Flask application
+├── config.py                          # Configuration settings
+├── requirements.txt                    # Python dependencies
+├── docker-compose.yml                  # MongoDB Docker setup
+├── init-mongo.js                      # MongoDB initialization script
+├── .env                               # Environment variables
+├── models/                            # MongoEngine models
 │   ├── __init__.py
-│   ├── user.py
-│   └── course.py
-├── dto/                 # Data Transfer Objects
+│   ├── conversation.py                # Conversation metadata model
+│   ├── message.py                     # Individual message model with semantic analysis
+│   └── cluster.py                     # Conversation clustering models
+├── dto/                               # Data Transfer Objects
 │   ├── __init__.py
-│   ├── user_dto.py
-│   └── course_dto.py
-├── services/            # Business logic
+│   ├── conversation_dto.py            # Conversation request/response DTOs
+│   └── ai_dto.py                      # AI service DTOs
+├── services/                          # Business logic services
 │   ├── __init__.py
-│   ├── user_service.py
-│   └── course_service.py
-└── routes/              # API endpoints
-    ├── __init__.py
-    ├── user_routes.py
-    └── course_routes.py
+│   ├── conversation_service.py        # Core conversation management
+│   ├── anthropic_service.py           # Claude API integration
+│   ├── message_analysis_service.py    # Technical concept extraction
+│   ├── conversation_clustering_service.py  # Semantic clustering
+│   └── background_clustering_service.py    # Background analysis triggers
+├── routes/                            # API endpoints
+│   ├── __init__.py
+│   ├── conversation_routes.py         # Conversation CRUD and streaming
+│   └── clustering_routes.py           # Learning analytics endpoints
+├── test_*.py                          # Comprehensive test suite
+├── manual_recluster.py                # Manual clustering operations
+├── recluster.sh                       # Clustering automation script
+└── README_*.md                        # Feature-specific documentation
 ```
+
+## Technology Stack
+
+### Core Technologies
+- **Flask 2.3.3**: Production-ready Python web framework
+- **MongoDB**: Document-oriented database for flexible conversation storage
+- **MongoEngine 0.27.0**: Python ODM with built-in validation
+- **Anthropic API**: Claude integration for AI conversations
+- **Server-Sent Events**: Real-time streaming responses
+
+### AI & Analytics
+- **Anthropic Claude**: Conversation responses and analysis
+- **Semantic Embeddings**: 1024-dimensional vectors for conversation clustering
+- **Technical Concept Extraction**: AI-powered analysis of conversation content
+- **Background Processing**: Asynchronous analysis and clustering
+
+### Data Validation & Serialization
+- **Marshmallow 3.20.1**: Request/response validation and serialization
+- **Marshmallow-MongoEngine**: MongoDB integration for data validation
 
 ## Setup Instructions
 
@@ -45,7 +95,7 @@ backend/
 
 - Python 3.8+
 - Docker and Docker Compose
-- pip (Python package manager)
+- Anthropic API key
 
 ### 1. Install Python Dependencies
 
@@ -60,15 +110,15 @@ pip install -r requirements.txt
 docker-compose up -d
 ```
 
-This will start a MongoDB container with:
+This starts MongoDB with:
 - Port: 27017
-- Database: claude_db
+- Database: anthropic_mastery_db
 - Admin user: admin/password123
-- App user: claude_user/claude_password
+- App user: mastery_user/mastery_password
 
 ### 3. Configure Environment Variables
 
-The `.env` file is already configured with default values. Modify if needed:
+Create or update `.env` file:
 
 ```env
 # Flask Configuration
@@ -79,13 +129,16 @@ SECRET_KEY=your-secret-key-change-in-production
 # MongoDB Configuration
 MONGODB_HOST=localhost
 MONGODB_PORT=27017
-MONGODB_DB=claude_db
-MONGODB_USERNAME=claude_user
-MONGODB_PASSWORD=claude_password
+MONGODB_DB=anthropic_mastery_db
+MONGODB_USERNAME=mastery_user
+MONGODB_PASSWORD=mastery_password
 
 # Application Configuration
 APP_HOST=0.0.0.0
 APP_PORT=5000
+
+# AI Services Configuration
+ANTHROPIC_API_KEY=your-anthropic-api-key-here
 ```
 
 ### 4. Run the Application
@@ -94,7 +147,7 @@ APP_PORT=5000
 python app.py
 ```
 
-The application will start on `http://localhost:5000`
+The application starts on `http://localhost:5000`
 
 ## API Endpoints
 
@@ -102,124 +155,220 @@ The application will start on `http://localhost:5000`
 - `GET /health` - Application health check
 - `GET /` - Root endpoint with API information
 
-### Users API (`/api/users`)
-- `POST /api/users` - Create a new user
-- `GET /api/users` - Get paginated list of users
-- `GET /api/users/<user_id>` - Get user by ID
-- `PUT /api/users/<user_id>` - Update user
-- `DELETE /api/users/<user_id>` - Delete user (soft delete)
-- `GET /api/users/search?q=<query>` - Search users
-- `GET /api/users/email/<email>` - Get user by email
-- `GET /api/users/health` - User service health check
+### Conversations API (`/api/conversations`)
 
-### Courses API (`/api/courses`)
-- `POST /api/courses` - Create a new course
-- `GET /api/courses` - Get paginated list of courses
-- `GET /api/courses/<course_id>` - Get course by ID
-- `PUT /api/courses/<course_id>` - Update course
-- `DELETE /api/courses/<course_id>` - Delete course (soft delete)
-- `POST /api/courses/<course_id>/enroll` - Enroll student in course
-- `POST /api/courses/<course_id>/unenroll` - Remove student from course
-- `GET /api/courses/<course_id>/students` - Get course students
-- `GET /api/courses/instructor/<instructor_id>` - Get courses by instructor
-- `GET /api/courses/student/<student_id>` - Get courses by student
-- `GET /api/courses/search?q=<query>` - Search courses
-- `GET /api/courses/health` - Course service health check
+#### Core Conversation Operations
+- `POST /api/conversations` - Create new conversation with initial message
+- `GET /api/conversations` - Get paginated list of conversations
+- `GET /api/conversations/<id>` - Get conversation with full message history
+- `POST /api/conversations/<id>/messages` - Add message and stream AI response
+- `POST /api/conversations/<id>/stream-response` - Stream AI response for existing conversation
+
+#### Streaming Responses
+All AI responses use Server-Sent Events (SSE) for real-time streaming:
+- Content-Type: `text/event-stream`
+- Real-time message chunks with completion status
+- Automatic conversation title generation
+- Background analysis triggering
+
+### Learning Analytics API (`/api/clustering`)
+
+#### Conversation Analysis
+- `GET /api/clustering/conversations/<id>/analysis` - Get conversation analysis results
+- `GET /api/clustering/conversations/<id>/cluster` - Get conversation cluster information
+- `GET /api/clustering/conversations/<id>/similar` - Find similar conversations
+
+#### Clustering Operations
+- `POST /api/clustering/trigger-clustering` - Trigger manual clustering operation
+- `GET /api/clustering/clusters` - Get all conversation clusters
+- `GET /api/clustering/clusters/<cluster_id>` - Get specific cluster details
+- `GET /api/clustering/status` - Get clustering system status
+
+## Data Models
+
+### Conversation Model
+```python
+class Conversation(Document):
+    title = StringField(required=True, max_length=200)
+    created_at = DateTimeField(default=datetime.utcnow)
+    updated_at = DateTimeField(default=datetime.utcnow)
+    
+    # Methods for message management and AI integration
+    def add_message(speaker, content) -> str
+    def get_messages() -> List[Message]
+    def get_message_history() -> List[Dict]  # For AI API
+```
+
+### Message Model
+```python
+class Message(Document):
+    conversation_id = StringField(required=True)
+    message_id = StringField(required=True, unique=True)
+    speaker = StringField(choices=['user', 'assistant'])
+    content = StringField(required=True)
+    created_at = DateTimeField(default=datetime.utcnow)
+    
+    # Semantic analysis fields
+    technical_concepts = ListField(StringField())
+    embedding = ListField(FloatField())  # 1024-dim vector
+    processed_for_clustering = BooleanField(default=False)
+```
+
+### Conversation Cluster Model
+```python
+class ConversationCluster(Document):
+    cluster_id = StringField(required=True, unique=True)
+    label = StringField(required=True)  # "Database Design & Optimization"
+    description = StringField(required=True)  # 2-sentence summary
+    conversation_ids = ListField(StringField())
+    key_concepts = ListField(StringField())
+    centroid = ListField(FloatField())  # Cluster center vector
+```
 
 ## Example API Usage
 
-### Create a User
+### Create a Conversation
 
 ```bash
-curl -X POST http://localhost:5000/api/users \
+curl -X POST http://localhost:5000/api/conversations \
   -H "Content-Type: application/json" \
   -d '{
-    "first_name": "John",
-    "last_name": "Doe",
-    "email": "john.doe@example.com",
-    "password": "securepassword"
+    "initial_message": "How do I optimize a SQL query with multiple joins?",
+    "title": "SQL Query Optimization"
   }'
 ```
 
-### Create a Course
+### Stream AI Response
 
 ```bash
-curl -X POST http://localhost:5000/api/courses \
+curl -X POST http://localhost:5000/api/conversations/<id>/stream-response \
+  -H "Accept: text/event-stream"
+```
+
+### Add Message and Stream Response
+
+```bash
+curl -X POST http://localhost:5000/api/conversations/<id>/messages \
   -H "Content-Type: application/json" \
+  -H "Accept: text/event-stream" \
   -d '{
-    "title": "Introduction to Python",
-    "description": "Learn Python programming basics",
-    "instructor_id": "<instructor_user_id>",
-    "duration_hours": 40
+    "message": "Can you explain the difference between INNER and LEFT JOIN?"
   }'
 ```
 
-### Enroll Student in Course
+### Get Conversation Analysis
 
 ```bash
-curl -X POST http://localhost:5000/api/courses/<course_id>/enroll \
-  -H "Content-Type: application/json" \
-  -d '{
-    "student_id": "<student_user_id>"
-  }'
+curl -X GET http://localhost:5000/api/clustering/conversations/<id>/analysis
 ```
 
-## Development
+## Learning Analytics Features
 
-### Running in Development Mode
+### Semantic Clustering
+- **Automatic Grouping**: Conversations clustered by technical concepts and themes
+- **Background Processing**: Real-time analysis triggered on message creation
+- **Concept Extraction**: AI-powered identification of technical concepts
+- **Similarity Detection**: Find related conversations and learning patterns
 
-The application is configured to run in development mode by default with:
-- Debug mode enabled
-- Auto-reload on file changes
-- Detailed error messages
+### Technical Concept Analysis
+- **Concept Extraction**: Identify technical terms, frameworks, and methodologies
+- **Embedding Generation**: 1024-dimensional vectors for semantic similarity
+- **Pattern Recognition**: Detect repeated questions and knowledge gaps
+- **Learning Opportunities**: Identify areas for skill development
 
-### Database Management
+### Conversation Intelligence
+- **Cluster Analysis**: Group conversations into thematic learning areas
+- **Dependency Mapping**: Track concepts users consistently ask about
+- **Progress Tracking**: Monitor learning progression over time
+- **Knowledge Gap Detection**: Identify areas needing improvement
 
-To reset the database:
+## Development Features
 
-```bash
-docker-compose down -v
-docker-compose up -d
-```
+### Testing Suite
+- `test_conversation_endpoints.py` - API endpoint testing
+- `test_semantic_clustering.py` - Clustering algorithm testing
+- `test_background_clustering.py` - Background processing testing
+- `test_anthropic_integration.py` - AI service integration testing
+- `test_full_conversation_flow.py` - End-to-end conversation testing
 
-To view MongoDB data:
+### Development Tools
+- `manual_recluster.py` - Manual clustering operations for development
+- `recluster.sh` - Automated clustering script
+- `clear_*.py` - Database cleanup utilities
+- `restart_and_test.py` - Development workflow automation
 
-```bash
-docker exec -it claude_mongodb mongosh -u admin -p password123 --authenticationDatabase admin
-```
+### Background Processing
+- **Asynchronous Analysis**: Non-blocking conversation analysis
+- **Clustering Triggers**: Automatic clustering on conversation completion
+- **Concept Extraction**: Real-time technical concept identification
+- **Learning Analytics**: Background generation of learning insights
 
 ## Production Considerations
 
-1. **Security**: Change default passwords and secret keys
-2. **Environment Variables**: Use production-specific values
-3. **Database**: Consider MongoDB Atlas or a managed MongoDB service
-4. **Logging**: Implement proper logging
-5. **Authentication**: Add JWT or session-based authentication
-6. **Rate Limiting**: Implement API rate limiting
-7. **Input Validation**: Additional validation beyond DTOs
-8. **Error Handling**: More comprehensive error handling
-9. **Testing**: Add unit and integration tests
-10. **Documentation**: API documentation with Swagger/OpenAPI
+### Security
+- **Input Validation**: Comprehensive DTO validation for all endpoints
+- **API Key Management**: Secure Anthropic API key handling
+- **CORS Configuration**: Proper cross-origin resource sharing setup
+- **Error Handling**: Structured error responses with proper HTTP status codes
+
+### Performance
+- **MongoDB Indexing**: Optimized indexes for conversation and message queries
+- **Streaming Responses**: Memory-efficient SSE implementation
+- **Background Processing**: Non-blocking analysis and clustering
+- **Connection Management**: Proper database connection handling
+
+### Scalability
+- **Document Storage**: Flexible MongoDB schema for conversation data
+- **Service Architecture**: Modular services ready for microservice deployment
+- **Clustering Optimization**: Efficient semantic clustering algorithms
+- **API Design**: RESTful endpoints with proper pagination and filtering
+
+### Monitoring
+- **Health Endpoints**: Service health monitoring for all components
+- **Logging**: Comprehensive logging for conversation operations and analysis
+- **Error Tracking**: Detailed error handling and reporting
+- **Performance Metrics**: Clustering performance and analysis timing
+
+## Learning Platform Integration
+
+This backend serves as the foundation for the Anthropic Mastery learning platform:
+
+### Current Capabilities ✅
+- **Complete Conversation System**: Full CRUD operations with streaming AI responses
+- **Semantic Analysis**: Technical concept extraction and conversation clustering
+- **Background Processing**: Asynchronous analysis and learning insight generation
+- **Learning Analytics API**: Endpoints for conversation analysis and cluster information
+
+### Planned Learning Features 🚧
+- **Knowledge Gap Detection**: Advanced pattern recognition for learning opportunities
+- **Learning Content Generation**: AI-powered creation of flashcards and quizzes
+- **Progress Tracking**: User proficiency assessment and learning journey mapping
+- **Adaptive Learning Paths**: Personalized learning recommendations based on conversation patterns
 
 ## Troubleshooting
 
 ### MongoDB Connection Issues
+1. Ensure Docker is running: `docker ps`
+2. Check MongoDB container: `docker logs anthropic_mastery_mongodb`
+3. Verify network connectivity: `docker network ls`
+4. Test connection: `python test_mongodb_connection.py`
 
-1. Ensure Docker is running
-2. Check if MongoDB container is running: `docker ps`
-3. Verify MongoDB logs: `docker logs claude_mongodb`
-4. Check network connectivity: `docker network ls`
+### Anthropic API Issues
+1. Verify API key in `.env` file
+2. Test integration: `python test_anthropic_integration.py`
+3. Check API rate limits and usage
+4. Verify network connectivity to Anthropic services
+
+### Clustering Issues
+1. Check clustering status: `GET /api/clustering/status`
+2. Trigger manual clustering: `python manual_recluster.py`
+3. Verify message analysis: `python test_semantic_clustering.py`
+4. Check background processing logs
 
 ### Application Errors
-
-1. Check Python dependencies are installed
+1. Check Python dependencies: `pip install -r requirements.txt`
 2. Verify environment variables in `.env`
-3. Check application logs for detailed error messages
-4. Ensure MongoDB is accessible from the application
+3. Run health checks: `GET /health`
+4. Check application logs for detailed error messages
 
-### Port Conflicts
-
-If port 5000 or 27017 are in use:
-1. Change ports in `.env` and `docker-compose.yml`
-2. Update any hardcoded references
-3. Restart services
+The Anthropic Mastery backend provides a robust foundation for conversation analysis and learning analytics, designed to scale from individual learning sessions to comprehensive knowledge mapping and skill development tracking.

@@ -39,8 +39,8 @@ class BackgroundClusteringService:
         
         # Configuration
         self.enabled = getattr(Config, 'BACKGROUND_CLUSTERING_ENABLED', True)
-        self.message_threshold = getattr(Config, 'CLUSTERING_MESSAGE_THRESHOLD', 3)
-        self.time_threshold_minutes = getattr(Config, 'CLUSTERING_TIME_THRESHOLD_MINUTES', 30)
+        self.message_threshold = getattr(Config, 'CLUSTERING_MESSAGE_THRESHOLD', 1)
+        self.time_threshold_minutes = getattr(Config, 'CLUSTERING_TIME_THRESHOLD_MINUTES', 5)
         
         self._initialized = True
         logger.info(f"BackgroundClusteringService initialized - enabled: {self.enabled}, "
