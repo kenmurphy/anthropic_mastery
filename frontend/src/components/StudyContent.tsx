@@ -6,6 +6,8 @@ interface CourseConcept {
   difficulty_level: 'beginner' | 'medium' | 'advanced';
   status: 'not_started' | 'reviewing' | 'reviewed' | 'not_interested' | 'already_know';
   type: 'original' | 'related';
+  summary?: string;
+  summary_generated_at?: string;
 }
 
 interface ConceptSummary {
@@ -13,6 +15,8 @@ interface ConceptSummary {
   summary: string;
   isLoading: boolean;
   error?: string;
+  cached?: boolean;
+  expanded?: boolean;
 }
 
 interface StudyContentProps {
@@ -27,17 +31,23 @@ function StudyContent({ concepts, courseId, onActiveConceptChange, scrollToConce
   const conceptRefs = useRef<Map<string, HTMLDivElement>>(new Map());
   const observerRef = useRef<IntersectionObserver | null>(null);
 
-  // Initialize concept summaries
+  // Initialize concept summaries with cached data, preserving existing expansion states
   useEffect(() => {
-    const initialSummaries = new Map<string, ConceptSummary>();
-    concepts.forEach(concept => {
-      initialSummaries.set(concept.title, {
-        title: concept.title,
-        summary: '',
-        isLoading: false
+    setConceptSummaries(prev => {
+      const updated = new Map<string, ConceptSummary>();
+      concepts.forEach(concept => {
+        const existing = prev.get(concept.title);
+        updated.set(concept.title, {
+          title: concept.title,
+          summary: concept.summary || existing?.summary || '',
+          isLoading: existing?.isLoading || false,
+          cached: !!concept.summary || existing?.cached || false,
+          expanded: existing?.expanded || false, // Preserve existing expansion state
+          error: existing?.error
+        });
       });
+      return updated;
     });
-    setConceptSummaries(initialSummaries);
   }, [concepts]);
 
   // Set up intersection observer for tracking active concept
@@ -87,6 +97,17 @@ function StudyContent({ concepts, courseId, onActiveConceptChange, scrollToConce
     }
   }, [scrollToConcept]);
 
+  const toggleSummaryExpansion = (conceptTitle: string) => {
+    setConceptSummaries(prev => {
+      const updated = new Map(prev);
+      const existing = updated.get(conceptTitle);
+      if (existing) {
+        updated.set(conceptTitle, { ...existing, expanded: !existing.expanded });
+      }
+      return updated;
+    });
+  };
+
   const generateConceptSummary = async (conceptTitle: string) => {
     setConceptSummaries(prev => {
       const updated = new Map(prev);
@@ -132,6 +153,24 @@ function StudyContent({ concepts, courseId, onActiveConceptChange, scrollToConce
             try {
               const data = JSON.parse(line.slice(6));
               
+              if (data.cached && data.content) {
+                // Handle cached response - return immediately
+                setConceptSummaries(prev => {
+                  const updated = new Map(prev);
+                  const existing = updated.get(conceptTitle);
+                  if (existing) {
+                    updated.set(conceptTitle, {
+                      ...existing,
+                      summary: data.content,
+                      isLoading: false,
+                      cached: true
+                    });
+                  }
+                  return updated;
+                });
+                return;
+              }
+
               if (data.content) {
                 accumulatedSummary += data.content;
                 setConceptSummaries(prev => {
@@ -141,7 +180,8 @@ function StudyContent({ concepts, courseId, onActiveConceptChange, scrollToConce
                     updated.set(conceptTitle, {
                       ...existing,
                       summary: accumulatedSummary,
-                      isLoading: true
+                      isLoading: true,
+                      cached: false
                     });
                   }
                   return updated;
@@ -156,7 +196,8 @@ function StudyContent({ concepts, courseId, onActiveConceptChange, scrollToConce
                     updated.set(conceptTitle, {
                       ...existing,
                       summary: accumulatedSummary,
-                      isLoading: false
+                      isLoading: false,
+                      cached: false
                     });
                   }
                   return updated;
@@ -202,10 +243,39 @@ function StudyContent({ concepts, courseId, onActiveConceptChange, scrollToConce
     }
   };
 
+  const handleChevronClick = async (conceptTitle: string) => {
+    const summary = conceptSummaries.get(conceptTitle);
+    
+    // If no summary exists, expand immediately and show loading state
+    if (!summary?.summary && !summary?.isLoading) {
+      // Immediately expand and show loading state
+      setConceptSummaries(prev => {
+        const updated = new Map(prev);
+        const existing = updated.get(conceptTitle);
+        if (existing) {
+          updated.set(conceptTitle, { 
+            ...existing, 
+            expanded: true, 
+            isLoading: true 
+          });
+        }
+        return updated;
+      });
+      
+      // Then generate the summary
+      await generateConceptSummary(conceptTitle);
+    } else {
+      // Toggle expansion
+      toggleSummaryExpansion(conceptTitle);
+    }
+  };
+
   return (
-    <div className="flex-1 overflow-y-auto p-6 space-y-6">
+    <div className="flex-1 overflow-y-auto p-3 space-y-3">
       {concepts.map((concept, index) => {
         const summary = conceptSummaries.get(concept.title);
+        const hasContent = summary?.summary || summary?.isLoading;
+        const isExpanded = summary?.expanded;
         
         return (
           <div
@@ -216,66 +286,86 @@ function StudyContent({ concepts, courseId, onActiveConceptChange, scrollToConce
               }
             }}
             data-concept-title={concept.title}
-            className="bg-white rounded-lg border border-gray-200 p-6 shadow-sm"
+            className="bg-white rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-shadow"
           >
-            <div className="flex items-start justify-between mb-4">
-              <div className="flex-1">
-                <h3 className="text-xl font-semibold text-gray-900 mb-2">
-                  {concept.title}
-                </h3>
-                <div className="flex items-center gap-2">
-                  <span className={`px-2 py-1 text-xs font-medium rounded-full capitalize ${getDifficultyBadgeColor(concept.difficulty_level)}`}>
-                    {concept.difficulty_level}
-                  </span>
-                  {concept.type === 'related' && (
-                    <span className="px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-800">
-                      Related Topic
+            {/* Compact concept card header */}
+            <div 
+              className="flex items-center justify-between p-4 cursor-pointer hover:bg-gray-50 transition-colors"
+              onClick={() => handleChevronClick(concept.title)}
+            >
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-3">
+                  <h3 className="text-lg font-medium text-gray-900 truncate">
+                    {concept.title}
+                  </h3>
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    <span className={`px-2 py-1 text-xs font-medium rounded-full capitalize ${getDifficultyBadgeColor(concept.difficulty_level)}`}>
+                      {concept.difficulty_level}
                     </span>
-                  )}
+                    {concept.type === 'related' && (
+                      <span className="px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-800">
+                        Related
+                      </span>
+                    )}
+                  </div>
                 </div>
               </div>
               
-              {!summary?.summary && !summary?.isLoading && (
-                <button
-                  onClick={() => generateConceptSummary(concept.title)}
-                  className="px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors"
+              {/* Chevron icon */}
+              <div className="flex items-center gap-2 flex-shrink-0 ml-4">
+                {summary?.isLoading && (
+                  <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+                )}
+                <svg
+                  className={`w-5 h-5 text-gray-400 transition-transform duration-200 ${
+                    isExpanded ? 'rotate-90' : ''
+                  }`}
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
                 >
-                  Generate Summary
-                </button>
-              )}
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </div>
             </div>
 
-            <div className="prose prose-sm max-w-none">
-              {summary?.isLoading && (
-                <div className="flex items-center gap-2 text-gray-600">
-                  <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
-                  <span>Generating summary...</span>
-                </div>
-              )}
-              
-              {summary?.error && (
-                <div className="text-red-600 bg-red-50 p-3 rounded-lg">
-                  <p className="font-medium">Error generating summary</p>
-                  <p className="text-sm">{summary.error}</p>
-                  <button
-                    onClick={() => generateConceptSummary(concept.title)}
-                    className="mt-2 text-sm text-red-700 hover:text-red-800 underline"
-                  >
-                    Try again
-                  </button>
-                </div>
-              )}
-              
-              {summary?.summary && (
-                <MarkdownRenderer content={summary.summary} />
-              )}
-              
-              {!summary?.summary && !summary?.isLoading && !summary?.error && (
-                <p className="text-gray-500 italic">
-                  Click "Generate Summary" to get an AI-powered explanation of this concept.
-                </p>
-              )}
-            </div>
+            {/* Expandable summary content */}
+            {hasContent && isExpanded && (
+              <div className="border-t border-gray-100 p-4 bg-gray-50">
+                {summary?.error ? (
+                  <div className="text-red-600 bg-red-50 p-3 rounded-lg border border-red-200">
+                    <p className="font-medium text-sm">Error generating summary</p>
+                    <p className="text-sm mt-1">{summary.error}</p>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        generateConceptSummary(concept.title);
+                      }}
+                      className="mt-2 text-sm text-red-700 hover:text-red-800 underline"
+                    >
+                      Try again
+                    </button>
+                  </div>
+                ) : (
+                  <div className="prose prose-sm max-w-none">
+                    <MarkdownRenderer content={summary.summary || 'thinking...'} />
+                    {summary.cached && (
+                      <div className="mt-3 pt-3 border-t border-gray-200">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            generateConceptSummary(concept.title);
+                          }}
+                          className="text-xs text-gray-500 hover:text-gray-700 underline"
+                        >
+                          Regenerate summary
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         );
       })}

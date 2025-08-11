@@ -19,15 +19,38 @@ class CourseConcept(EmbeddedDocument):
         choices=['original', 'related'],
         default='original'
     )
+    summary = StringField()  # Cached AI-generated summary
+    summary_generated_at = DateTimeField()  # When summary was generated
     
     def to_dict(self):
         """Convert concept to dictionary"""
+        def format_datetime(dt):
+            """Helper to safely format datetime objects"""
+            if dt is None:
+                return None
+            if isinstance(dt, datetime):
+                return dt.isoformat()
+            if isinstance(dt, str):
+                return dt
+            return str(dt)
+        
         return {
             'title': self.title,
             'difficulty_level': self.difficulty_level,
             'status': self.status,
-            'type': self.type
+            'type': self.type,
+            'summary': self.summary,
+            'summary_generated_at': format_datetime(self.summary_generated_at)
         }
+    
+    def has_summary(self):
+        """Check if concept has a cached summary"""
+        return bool(self.summary and str(self.summary).strip())
+    
+    def set_summary(self, summary_text):
+        """Set the summary and update timestamp"""
+        self.summary = summary_text
+        self.summary_generated_at = datetime.utcnow()
 
 class Course(Document):
     """Course model - created from conversation clusters for structured learning"""
