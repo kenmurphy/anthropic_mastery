@@ -1,0 +1,222 @@
+import React from 'react';
+
+interface CourseConcept {
+  title: string;
+  difficulty_level: 'beginner' | 'medium' | 'advanced';
+  status: 'not_started' | 'reviewing' | 'reviewed' | 'not_interested' | 'already_know';
+  type: 'original' | 'related';
+}
+
+interface ConceptCardProps {
+  concept: CourseConcept;
+  isRelated?: boolean;
+  isSelectable?: boolean;
+  isSelected?: boolean;
+  onToggleSelect?: () => void;
+}
+
+function ConceptCard({ concept, isRelated = false, isSelectable = false, isSelected = false, onToggleSelect }: ConceptCardProps) {
+  const getDifficultyColor = (level: string) => {
+    switch (level) {
+      case 'beginner': return 'bg-green-100 text-green-800';
+      case 'medium': return 'bg-yellow-100 text-yellow-800';
+      case 'advanced': return 'bg-red-100 text-red-800';
+      default: return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'reviewing': return 'bg-yellow-100 text-yellow-800';
+      case 'not_started': return 'bg-orange-100 text-orange-800';
+      default: return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  const getStatusText = (status: string) => {
+    switch (status) {
+      case 'reviewing': return 'Reviewing';
+      case 'not_started': return 'Not Started';
+      default: return status;
+    }
+  };
+
+  // Only show status if it's "not_started" or "reviewing"
+  const shouldShowStatus = concept.status === 'not_started' || concept.status === 'reviewing';
+
+  return (
+    <div 
+      className={`border rounded-lg p-4 transition-all duration-200 ${
+        isSelectable 
+          ? 'cursor-pointer hover:shadow-md hover:border-blue-300' 
+          : 'hover:shadow-md'
+      } ${
+        isSelected 
+          ? 'border-blue-500 bg-blue-50 shadow-md' 
+          : isRelated 
+            ? 'border-purple-200 bg-purple-50/30' 
+            : 'border-gray-200 bg-white'
+      }`}
+      onClick={isSelectable ? onToggleSelect : undefined}
+    >
+      <div className="flex items-start justify-between mb-3">
+        <h4 className="font-medium text-gray-900 text-sm leading-tight">
+          {concept.title}
+        </h4>
+        <div className="flex items-center gap-2 ml-2 flex-shrink-0">
+          {isRelated && (
+            <span className="text-xs bg-purple-100 text-purple-700 px-2 py-1 rounded-full">
+              AI
+            </span>
+          )}
+          {isSelectable && (
+            <div className={`w-5 h-5 rounded border-2 flex items-center justify-center ${
+              isSelected 
+                ? 'bg-blue-500 border-blue-500' 
+                : 'border-gray-300 bg-white'
+            }`}>
+              {isSelected && (
+                <span className="text-white text-xs">✓</span>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+      
+      <div className="flex items-center gap-2 mt-3">
+        <span className={`text-xs px-2 py-1 rounded-full font-medium ${getDifficultyColor(concept.difficulty_level)}`}>
+          {concept.difficulty_level.charAt(0).toUpperCase() + concept.difficulty_level.slice(1)}
+        </span>
+        {shouldShowStatus && (
+          <span className={`text-xs px-2 py-1 rounded-full font-medium ${getStatusColor(concept.status)}`}>
+            {getStatusText(concept.status)}
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
+
+interface ConceptSelectorProps {
+  concepts: CourseConcept[];
+  selectedConcepts: Set<string>;
+  onToggleConceptSelection: (conceptTitle: string) => void;
+  onStartReview: () => void;
+  canSelectConcepts: boolean;
+  startingReview: boolean;
+}
+
+function ConceptSelector({ 
+  concepts, 
+  selectedConcepts, 
+  onToggleConceptSelection, 
+  onStartReview, 
+  canSelectConcepts, 
+  startingReview 
+}: ConceptSelectorProps) {
+  if (concepts.length === 0) {
+    return (
+      <div className="text-center py-8 text-gray-500">
+        <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
+          <span className="text-xl">📝</span>
+        </div>
+        <p>No concepts available for this course</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Original Concepts */}
+      {concepts.filter(concept => concept.type === 'original').length > 0 && (
+        <div>
+          <h3 className="text-lg font-medium text-gray-800 mb-4 flex items-center gap-2">
+            <span className="w-2 h-2 bg-blue-500 rounded-full"></span>
+            Core Concepts
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {concepts
+              .filter(concept => concept.type === 'original')
+              .map((concept, index) => (
+                <ConceptCard 
+                  key={`original-${index}`} 
+                  concept={concept}
+                  isSelectable={canSelectConcepts}
+                  isSelected={selectedConcepts.has(concept.title) || concept.status === 'reviewing'}
+                  onToggleSelect={() => onToggleConceptSelection(concept.title)}
+                />
+              ))}
+          </div>
+        </div>
+      )}
+
+      {/* Related Concepts */}
+      {concepts.filter(concept => concept.type === 'related').length > 0 && (
+        <div>
+          <h3 className="text-lg font-medium text-gray-800 mb-4 flex items-center gap-2">
+            <span className="w-2 h-2 bg-purple-500 rounded-full"></span>
+            Related Concepts
+            <span className="text-sm font-normal text-gray-500 ml-2">
+              (AI Suggested)
+            </span>
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {concepts
+              .filter(concept => concept.type === 'related')
+              .map((concept, index) => (
+                <ConceptCard
+                  key={`related-${index}`} 
+                  concept={concept}
+                  isRelated={true}
+                  isSelectable={canSelectConcepts}
+                  isSelected={selectedConcepts.has(concept.title) || concept.status === 'reviewing'}
+                  onToggleSelect={() => onToggleConceptSelection(concept.title)}
+                />
+              ))}
+          </div>
+        </div>
+      )}
+
+      {/* Start Review Button */}
+      {canSelectConcepts && selectedConcepts.size > 0 && (
+        <div className="mt-6 pt-6 border-t border-gray-100">
+          <div className="flex items-center justify-between">
+            <div className="text-sm text-gray-600">
+              {selectedConcepts.size} concept{selectedConcepts.size !== 1 ? 's' : ''} selected for review
+            </div>
+            <button
+              onClick={onStartReview}
+              disabled={startingReview}
+              className="bg-blue-600 text-white px-6 py-2 rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+            >
+              {startingReview ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                  Starting Review...
+                </>
+              ) : (
+                'Start Review'
+              )}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Selection Instructions */}
+      {canSelectConcepts && selectedConcepts.size === 0 && (
+        <div className="mt-6 pt-6 border-t border-gray-100">
+          <div className="text-center text-gray-500">
+            <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-2">
+              <span className="text-blue-600">👆</span>
+            </div>
+            <p className="text-sm">
+              Click on concepts above to select them for review, then click "Start Review" to begin learning.
+            </p>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+export default ConceptSelector;

@@ -3,6 +3,7 @@ from flask_cors import CORS
 from mongoengine import connect
 from config import config
 from routes import conversation_bp, clustering_bp, study_guide_bp
+from routes.study_routes import study_bp
 import os
 import sys
 
@@ -37,6 +38,7 @@ def create_app(config_name=None):
     app.register_blueprint(conversation_bp)
     app.register_blueprint(clustering_bp)
     app.register_blueprint(study_guide_bp)
+    app.register_blueprint(study_bp)
     
     # Global error handlers
     @app.errorhandler(404)

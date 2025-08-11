@@ -139,6 +139,54 @@ def get_all_courses():
             'error': str(e)
         }), 500
 
+@study_guide_bp.route('/courses/<course_id>/start-review', methods=['POST'])
+def start_course_review(course_id):
+    """Start review process for selected concepts in a course"""
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({
+                'success': False,
+                'error': 'Request body is required'
+            }), 400
+        
+        selected_concept_titles = data.get('selected_concept_titles')
+        if not selected_concept_titles:
+            return jsonify({
+                'success': False,
+                'error': 'selected_concept_titles is required'
+            }), 400
+        
+        if not isinstance(selected_concept_titles, list):
+            return jsonify({
+                'success': False,
+                'error': 'selected_concept_titles must be a list'
+            }), 400
+        
+        if len(selected_concept_titles) == 0:
+            return jsonify({
+                'success': False,
+                'error': 'At least one concept must be selected'
+            }), 400
+        
+        course = StudyGuideService.start_course_review(course_id, selected_concept_titles)
+        return jsonify({
+            'success': True,
+            'course': course.to_dict(),
+            'message': f'Review started for {len(selected_concept_titles)} concept(s)'
+        })
+        
+    except ValueError as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 400
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
 @study_guide_bp.route('/courses/<course_id>', methods=['DELETE'])
 def delete_course(course_id):
     """Delete a course by ID"""

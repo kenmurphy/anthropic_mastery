@@ -19,6 +19,10 @@ interface SidebarProps {
 function Sidebar({ onStartNewChat, onSelectConversation, currentConversationId, onRefreshReady, onClaudeMasteryClick }: SidebarProps) {
   const [conversations, setConversations] = useState<Conversation[]>([])
   const [isLoading, setIsLoading] = useState(false)
+  const [isCollapsed, setIsCollapsed] = useState(() => {
+    const saved = localStorage.getItem('sidebarCollapsed')
+    return saved ? JSON.parse(saved) : false
+  })
 
   // Fetch conversations function
   const fetchConversations = async () => {
@@ -51,6 +55,13 @@ function Sidebar({ onStartNewChat, onSelectConversation, currentConversationId, 
     }
   }, [onRefreshReady])
 
+  // Toggle collapse function
+  const toggleCollapse = () => {
+    const newCollapsed = !isCollapsed
+    setIsCollapsed(newCollapsed)
+    localStorage.setItem('sidebarCollapsed', JSON.stringify(newCollapsed))
+  }
+
   const formatDate = (dateString: string) => {
     const date = new Date(dateString)
     const now = new Date()
@@ -67,105 +78,103 @@ function Sidebar({ onStartNewChat, onSelectConversation, currentConversationId, 
 
   return (
     <div
-      className="border-r border-gray-200 flex flex-col px-2 w-[290px] box-content"
+      className={`border-r border-gray-200 flex flex-col px-2 box-content transition-all duration-300 ${
+        isCollapsed ? 'w-[52px]' : 'w-[290px]'
+      }`}
     >
       {/* Header */}
       <div className="p-2">
-        <h1
-          className="text-md font-semibold text-gray-900"
-          style={{
-            fontFamily: 'copernicus, "copernicus Fallback", Georgia, "Times New Roman", Times, serif',
-            fontSize: 18,
-            fontWeight: 400,
-          }}
+        {/* Hamburger Menu Button */}
+        <button
+          onClick={toggleCollapse}
+          className="w-full flex items-center justify-center p-2 text-gray-700 hover:bg-gray-100 rounded-md transition-colors mb-2"
+          title={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
         >
-          Claude
-        </h1>
+          <span className="text-lg">☰</span>
+        </button>
+
+        {!isCollapsed && (
+          <h1
+            className="text-md font-semibold text-gray-900 transition-opacity duration-300"
+            style={{
+              fontFamily: 'copernicus, "copernicus Fallback", Georgia, "Times New Roman", Times, serif',
+              fontSize: 18,
+              fontWeight: 400,
+            }}
+          >
+            Claude
+          </h1>
+        )}
         
         {/* New Chat Button */}
         <button 
           onClick={onStartNewChat}
-          className="w-full flex items-center gap-3 px-2 py-2 text-gray-700 hover:bg-gray-100 rounded-md transition-colors text-left mt-4">
+          className={`w-full flex items-center px-2 py-2 text-gray-700 hover:bg-gray-100 rounded-md transition-colors text-left mt-4 ${
+            isCollapsed ? 'justify-center' : 'gap-3'
+          }`}
+          title={isCollapsed ? "New chat" : undefined}
+        >
           <div
             className="w-6 h-6 rounded-full flex items-center justify-center"
-            style={{ backgroundColor: '#F97316', marginRight: '4px', width: '24px', height: '24px' }}
+            style={{ 
+              backgroundColor: '#F97316', 
+              marginRight: isCollapsed ? '0' : '4px', 
+              width: '24px', 
+              height: '24px' 
+            }}
           >
             <span className="text-md text-white">+</span>
           </div>
-          <span className="text-sm font-medium" style={{ color: '#F97316' }}>New chat</span>
+          {!isCollapsed && (
+            <span className="text-sm font-medium transition-opacity duration-300" style={{ color: '#F97316' }}>
+              New chat
+            </span>
+          )}
         </button>
       </div>
 
       {/* Navigation */}
       <div className="px-2 py-3">
         <nav className="space-y-1">
-          <button className="w-full flex items-center px-2 py-2 text-gray-700 hover:bg-gray-100 rounded-md transition-colors text-left">
-            <div className="w-5 h-5 flex items-center justify-center mr-2">
+          <button 
+            className={`w-full flex items-center px-2 py-2 text-gray-700 hover:bg-gray-100 rounded-md transition-colors text-left ${
+              isCollapsed ? 'justify-center' : ''
+            }`}
+            title={isCollapsed ? "Chats" : undefined}
+          >
+            <div className={`w-5 h-5 flex items-center justify-center ${isCollapsed ? '' : 'mr-2'}`}>
               <span className="text-gray-500">💬</span>
             </div>
-            <span className="text-sm">Chats</span>
+            {!isCollapsed && (
+              <span className="text-sm transition-opacity duration-300">Chats</span>
+            )}
           </button>
-          <button className="w-full flex items-center px-2 py-2 text-gray-700 hover:bg-gray-100 rounded-md transition-colors text-left">
-            <div className="w-5 h-5 flex items-center justify-center mr-2">
+          <button 
+            className={`w-full flex items-center px-2 py-2 text-gray-700 hover:bg-gray-100 rounded-md transition-colors text-left ${
+              isCollapsed ? 'justify-center' : ''
+            }`}
+            title={isCollapsed ? "Projects" : undefined}
+          >
+            <div className={`w-5 h-5 flex items-center justify-center ${isCollapsed ? '' : 'mr-2'}`}>
               <span className="text-gray-500">📁</span>
             </div>
-            <span className="text-sm">Projects</span>
+            {!isCollapsed && (
+              <span className="text-sm transition-opacity duration-300">Projects</span>
+            )}
           </button>
-          <button className="w-full flex items-center px-2 py-2 text-gray-700 hover:bg-gray-100 rounded-md transition-colors text-left">
-            <div className="w-5 h-5 flex items-center justify-center mr-2">
+          <button 
+            className={`w-full flex items-center px-2 py-2 text-gray-700 hover:bg-gray-100 rounded-md transition-colors text-left ${
+              isCollapsed ? 'justify-center' : ''
+            }`}
+            title={isCollapsed ? "Artifacts" : undefined}
+          >
+            <div className={`w-5 h-5 flex items-center justify-center ${isCollapsed ? '' : 'mr-2'}`}>
               <span className="text-gray-500">🎨</span>
             </div>
-            <span className="text-sm">Artifacts</span>
+            {!isCollapsed && (
+              <span className="text-sm transition-opacity duration-300">Artifacts</span>
+            )}
           </button>
           <button 
             onClick={onClaudeMasteryClick}
-            className="w-full flex items-center px-2 py-2 text-gray-700 hover:bg-gray-100 rounded-md transition-colors text-left">
-            <div className="w-5 h-5 flex items-center justify-center mr-2">
-              <span className="text-gray-500">🧠</span>
-            </div>
-            <span className="text-sm">Claude Mastery</span>
-          </button>
-        </nav>
-      </div>
-
-      {/* Recents Section */}
-      <div className="flex-1 px-4 py-3 overflow-y-auto">
-        <h3 className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-3">Recents</h3>
-        
-        {isLoading ? (
-          <div className="text-sm text-gray-400 italic">Loading conversations...</div>
-        ) : conversations.length === 0 ? (
-          <div className="text-sm text-gray-400 italic">No recent conversations</div>
-        ) : (
-          <div className="space-y-1">
-            {conversations.map((conversation) => (
-              <button
-                key={conversation.id}
-                onClick={() => onSelectConversation(conversation.id)}
-                className={`w-full text-left px-2 py-2 rounded-md transition-colors hover:bg-gray-100 ${
-                  currentConversationId === conversation.id ? 'bg-gray-100' : ''
-                }`}
-              >
-                <div className="flex items-center justify-between">
-                  <div className="flex-1 min-w-0">
-                    <div className="text-sm font-medium text-gray-900 truncate">
-                      {conversation.title}
-                    </div>
-                    <div className="text-xs text-gray-500 mt-1">
-                      {conversation.message_count} message{conversation.message_count !== 1 ? 's' : ''}
-                    </div>
-                  </div>
-                  <div className="text-xs text-gray-400 ml-2 flex-shrink-0">
-                    {formatDate(conversation.updated_at)}
-                  </div>
-                </div>
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
-    </div>
-  )
-}
-
-export default Sidebar
+            className={`w-full flex items-center px-2 py-2 text-gray-700 hover:bg-gray-100 rounded-md transition-colors text-left ${

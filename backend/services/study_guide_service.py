@@ -62,45 +62,70 @@ class StudyGuideService:
                 if existing_course:
                     return existing_course
                 
-                # Create original concepts from cluster
-                original_concepts = [
-                    CourseConcept(
-                        title=concept,
-                        difficulty_level='medium',
-                        status='not_started',
-                        type='original'
-                    ) for concept in cluster.key_concepts
-                ]
+                anthropic_service = AnthropicService()
                 
-                # Deduplicate original concepts (in case cluster has duplicates)
-                original_concepts = StudyGuideService._deduplicate_concepts_by_title(original_concepts)
-                
-                # Generate adjacent concepts using Anthropic API
+                # Step 1: Refine original topics from raw cluster concepts
                 try:
-                    anthropic_service = AnthropicService()
-                    adjacent_concept_data = anthropic_service.generate_adjacent_concepts(
-                        existing_concepts=cluster.key_concepts,
+                    refined_original_data = anthropic_service.refine_original_topics(
+                        raw_concepts=cluster.key_concepts,
+                        course_title=cluster.label,
                         course_description=cluster.description
                     )
                     
-                    # Create adjacent concepts
-                    adjacent_concepts = [
+                    # Create refined original concepts
+                    original_concepts = [
+                        CourseConcept(
+                            title=concept_data['title'],
+                            difficulty_level=concept_data['difficulty_level'],
+                            status='not_started',
+                            type='original'
+                        ) for concept_data in refined_original_data
+                    ]
+                    
+                    print(f"Refined {len(cluster.key_concepts)} raw concepts into {len(original_concepts)} original topics for course: {cluster.label}")
+                    
+                except Exception as e:
+                    print(f"Error refining original topics: {e}")
+                    # Fallback: use raw concepts with default formatting
+                    original_concepts = [
+                        CourseConcept(
+                            title=concept.replace('-', ' ').title(),
+                            difficulty_level='medium',
+                            status='not_started',
+                            type='original'
+                        ) for concept in cluster.key_concepts
+                    ]
+                
+                # Deduplicate original concepts (in case refinement has duplicates)
+                original_concepts = StudyGuideService._deduplicate_concepts_by_title(original_concepts)
+                
+                # Step 2: Generate related topics using refined original topics
+                try:
+                    original_titles = [concept.title for concept in original_concepts]
+                    related_concept_data = anthropic_service.generate_related_topics(
+                        existing_concepts=original_titles,
+                        course_title=cluster.label,
+                        course_description=cluster.description
+                    )
+                    
+                    # Create related concepts
+                    related_concepts = [
                         CourseConcept(
                             title=concept_data['title'],
                             difficulty_level=concept_data['difficulty_level'],
                             status='not_started',
                             type='related'
-                        ) for concept_data in adjacent_concept_data
+                        ) for concept_data in related_concept_data
                     ]
                     
-                    print(f"Generated {len(adjacent_concepts)} adjacent concepts for course: {cluster.label}")
+                    print(f"Generated {len(related_concepts)} related topics for course: {cluster.label}")
                     
                 except Exception as e:
-                    print(f"Error generating adjacent concepts: {e}")
-                    adjacent_concepts = []
+                    print(f"Error generating related topics: {e}")
+                    related_concepts = []
                 
                 # Combine concepts and apply final deduplication (original concepts come first, so they take priority)
-                all_concepts = original_concepts + adjacent_concepts
+                all_concepts = original_concepts + related_concepts
                 deduplicated_concepts = StudyGuideService._deduplicate_concepts_by_title(all_concepts)
                 
                 # Create new course with deduplicated concepts
@@ -123,11 +148,55 @@ class StudyGuideService:
     
     @staticmethod
     def get_course_by_id(course_id):
-        """Get course by ID"""
+        """Get course by ID with fresh related topics generated"""
         try:
             course = Course.objects(id=course_id).first()
             if not course:
                 raise ValueError("Course not found")
+            
+            # Generate fresh related topics when fetching existing course
+            try:
+                anthropic_service = AnthropicService()
+                
+                # Get current original topics (type='original')
+                original_topics = [concept.title for concept in course.concepts if concept.type == 'original']
+                
+                if original_topics:
+                    # Generate fresh related topics
+                    fresh_related_data = anthropic_service.generate_related_topics(
+                        existing_concepts=original_topics,
+                        course_title=course.label,
+                        course_description=course.description
+                    )
+                    
+                    # Create fresh related concepts
+                    fresh_related_concepts = [
+                        CourseConcept(
+                            title=concept_data['title'],
+                            difficulty_level=concept_data['difficulty_level'],
+                            status='not_started',
+                            type='related'
+                        ) for concept_data in fresh_related_data
+                    ]
+                    
+                    # Replace existing related topics with fresh ones
+                    # Keep original topics, replace related topics
+                    original_concepts = [concept for concept in course.concepts if concept.type == 'original']
+                    all_concepts = original_concepts + fresh_related_concepts
+                    
+                    # Apply deduplication
+                    deduplicated_concepts = StudyGuideService._deduplicate_concepts_by_title(all_concepts)
+                    
+                    # Update course with fresh related topics
+                    course.concepts = deduplicated_concepts
+                    course.save()
+                    
+                    print(f"Generated {len(fresh_related_concepts)} fresh related topics for course: {course.label}")
+                
+            except Exception as e:
+                print(f"Error generating fresh related topics for course {course_id}: {e}")
+                # Continue with existing course data if related topic generation fails
+            
             return course
         except Exception as e:
             print(f"Error getting course by ID: {e}")
@@ -167,6 +236,39 @@ class StudyGuideService:
             print(f"Error getting all courses: {e}")
             return []
     
+    @staticmethod
+    def start_course_review(course_id, selected_concept_titles):
+        """Start review process for selected concepts in a course"""
+        try:
+            course = Course.objects(id=course_id).first()
+            if not course:
+                raise ValueError("Course not found")
+            
+            # Validate that course is in explore stage
+            if course.current_stage != 'explore':
+                raise ValueError("Course must be in 'explore' stage to start review")
+            
+            # Validate that selected concepts exist and are not_started
+            valid_concepts = []
+            for title in selected_concept_titles:
+                concept = course.get_concept_by_title(title)
+                if not concept:
+                    raise ValueError(f"Concept '{title}' not found in course")
+                if concept.status != 'not_started':
+                    raise ValueError(f"Concept '{title}' is not available for selection (status: {concept.status})")
+                valid_concepts.append(concept)
+            
+            # Start the review process
+            success = course.start_review(selected_concept_titles)
+            if not success:
+                raise ValueError("Failed to start review process")
+            
+            return course
+            
+        except Exception as e:
+            print(f"Error starting course review: {e}")
+            raise e
+
     @staticmethod
     def delete_course(course_id):
         """Delete a course by ID"""

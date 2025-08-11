@@ -503,45 +503,143 @@ Please provide your analysis:"""
             print(f"Error generating conversation title: {e}")
             return "Conversation"
     
-    def generate_adjacent_concepts(self, existing_concepts: List[str], course_description: str) -> List[Dict[str, str]]:
+    def refine_original_topics(self, raw_concepts: List[str], course_title: str, course_description: str) -> List[Dict[str, str]]:
         """
-        Generate related concepts using Anthropic API
+        Refine raw cluster concepts into high-quality original learning topics
         
         Args:
-            existing_concepts: List of current course concept titles
+            raw_concepts: List of raw concept strings from cluster analysis
+            course_title: Title of the course for context
             course_description: Description of the course for context
             
         Returns:
-            List of dictionaries with 'title' and 'difficulty_level' keys
+            List of dictionaries with 'title' and 'difficulty_level' keys for refined original topics
         """
         try:
-            # Build prompt for adjacent concept generation
-            concepts_text = "\n".join([f"- {concept}" for concept in existing_concepts])
+            # Build prompt for topic refinement
+            concepts_text = "\n".join([f"- {concept}" for concept in raw_concepts])
             
-            system_prompt = """You are an AI learning assistant that helps identify related concepts for educational courses.
+            system_prompt = """You are an AI learning assistant that refines raw technical concepts into high-quality learning topics.
 
-Given a course description and existing concepts, suggest 5-8 adjacent concepts that would complement the learning journey. These should be:
-1. Related to the existing concepts but not duplicates
-2. At appropriate difficulty levels (beginner, medium, advanced)
-3. Valuable for deepening understanding of the subject area
-4. Practical and actionable learning topics
+Your task is to review a list of raw concepts extracted from professional conversations and improve them for educational purposes. You should:
+
+1. **Collapse Similar Topics**: Merge concepts that are too similar or overlapping
+2. **Improve Formatting**: Convert technical terms into clear, learnable topic titles
+3. **Ensure Appropriate Granularity**: Topics should be substantial enough for meaningful learning
+4. **Maintain Relevance**: Keep topics connected to the original conversation content
+5. **Add Difficulty Levels**: Assign beginner, medium, or advanced based on complexity
+
+Guidelines:
+- Convert "database-query" → "Database Query Fundamentals"
+- Merge "error-handling" + "exception-handling" → "Error and Exception Handling"
+- Remove overly specific items that aren't broadly educational
+- Ensure each topic represents a learnable skill or concept area
 
 Respond with ONLY a valid JSON array in this format:
 [
   {
-    "title": "Concept Title",
+    "title": "Refined Topic Title",
     "difficulty_level": "beginner|medium|advanced"
   }
 ]
 
 Do not include any explanations or additional text outside the JSON."""
 
-            user_prompt = f"""Course Description: {course_description}
+            user_prompt = f"""Course: {course_title}
+Description: {course_description}
 
-Existing Concepts:
+Raw Concepts to Refine:
 {concepts_text}
 
-Generate 5-8 related concepts that would complement this learning path:"""
+Please refine these concepts into high-quality learning topics:"""
+
+            response = self.client.messages.create(
+                model=self.models['research'],
+                max_tokens=800,
+                temperature=0.3,  # Lower temperature for more consistent refinement
+                system=system_prompt,
+                messages=[{"role": "user", "content": user_prompt}]
+            )
+            
+            # Parse the JSON response
+            response_text = response.content[0].text.strip()
+            
+            # Try to extract JSON if there's extra text
+            import json
+            import re
+            
+            # Look for JSON array pattern
+            json_match = re.search(r'\[.*\]', response_text, re.DOTALL)
+            if json_match:
+                response_text = json_match.group(0)
+            
+            refined_topics = json.loads(response_text)
+            
+            # Validate the response structure
+            validated_topics = []
+            for topic in refined_topics:
+                if isinstance(topic, dict) and 'title' in topic and 'difficulty_level' in topic:
+                    # Validate difficulty level
+                    if topic['difficulty_level'] in ['beginner', 'medium', 'advanced']:
+                        validated_topics.append({
+                            'title': topic['title'][:200],  # Truncate to max length
+                            'difficulty_level': topic['difficulty_level']
+                        })
+            
+            return validated_topics[:10]  # Limit to 10 refined topics max
+            
+        except Exception as e:
+            print(f"Error refining original topics: {e}")
+            # Fallback: return raw concepts with default difficulty
+            return [
+                {
+                    'title': concept.replace('-', ' ').title(),
+                    'difficulty_level': 'medium'
+                } for concept in raw_concepts[:10]
+            ]
+
+    def generate_related_topics(self, existing_concepts: List[str], course_title: str, course_description: str) -> List[Dict[str, str]]:
+        """
+        Generate related topics using existing course concepts as input
+        
+        Args:
+            existing_concepts: List of current course concept titles (refined originals)
+            course_title: Title of the course for context
+            course_description: Description of the course for context
+            
+        Returns:
+            List of dictionaries with 'title' and 'difficulty_level' keys
+        """
+        try:
+            # Build prompt for related topic generation
+            concepts_text = "\n".join([f"- {concept}" for concept in existing_concepts])
+            
+            system_prompt = """You are an AI learning assistant that identifies related concepts for educational courses.
+
+Given a course and its existing topics, suggest 5-8 related topics that would complement the learning journey. These should be:
+1. Related to the existing topics but not duplicates
+2. At appropriate difficulty levels (beginner, medium, advanced)
+3. Valuable for deepening understanding of the subject area
+4. Practical and actionable learning topics
+5. Expand the learning scope without being too distant from the core topics
+
+Respond with ONLY a valid JSON array in this format:
+[
+  {
+    "title": "Related Topic Title",
+    "difficulty_level": "beginner|medium|advanced"
+  }
+]
+
+Do not include any explanations or additional text outside the JSON."""
+
+            user_prompt = f"""Course: {course_title}
+Description: {course_description}
+
+Existing Topics:
+{concepts_text}
+
+Generate 5-8 related topics that would complement this learning path:"""
 
             response = self.client.messages.create(
                 model=self.models['research'],
@@ -563,25 +661,199 @@ Generate 5-8 related concepts that would complement this learning path:"""
             if json_match:
                 response_text = json_match.group(0)
             
-            adjacent_concepts = json.loads(response_text)
+            related_topics = json.loads(response_text)
             
             # Validate the response structure
-            validated_concepts = []
-            for concept in adjacent_concepts:
-                if isinstance(concept, dict) and 'title' in concept and 'difficulty_level' in concept:
+            validated_topics = []
+            for topic in related_topics:
+                if isinstance(topic, dict) and 'title' in topic and 'difficulty_level' in topic:
                     # Validate difficulty level
-                    if concept['difficulty_level'] in ['beginner', 'medium', 'advanced']:
-                        validated_concepts.append({
-                            'title': concept['title'][:200],  # Truncate to max length
-                            'difficulty_level': concept['difficulty_level']
+                    if topic['difficulty_level'] in ['beginner', 'medium', 'advanced']:
+                        validated_topics.append({
+                            'title': topic['title'][:200],  # Truncate to max length
+                            'difficulty_level': topic['difficulty_level']
                         })
             
-            return validated_concepts[:8]  # Limit to 8 concepts max
+            return validated_topics[:8]  # Limit to 8 related topics max
             
         except Exception as e:
-            print(f"Error generating adjacent concepts: {e}")
+            print(f"Error generating related topics: {e}")
             return []  # Return empty list on error
+
+    def generate_adjacent_concepts(self, existing_concepts: List[str], course_description: str) -> List[Dict[str, str]]:
+        """
+        Legacy method - now delegates to generate_related_topics for backward compatibility
+        
+        Args:
+            existing_concepts: List of current course concept titles
+            course_description: Description of the course for context
+            
+        Returns:
+            List of dictionaries with 'title' and 'difficulty_level' keys
+        """
+        # For backward compatibility, use the course description as both title and description
+        return self.generate_related_topics(existing_concepts, "Course", course_description)
     
+    def stream_concept_summary(
+        self, 
+        concept_title: str, 
+        course_context: str = ""
+    ) -> Generator[Dict[str, Any], None, None]:
+        """
+        Stream AI-generated concept summaries for study content
+        
+        Args:
+            concept_title: The concept to explain
+            course_context: Optional course context for better explanations
+            
+        Yields:
+            Dict with content, is_complete, and error fields
+        """
+        try:
+            # Build prompt for concept explanation
+            system_prompt = """You are an AI learning assistant that creates clear, comprehensive explanations of concepts for students.
+
+Your task is to provide a detailed explanation of the given concept that includes:
+1. A clear definition or overview
+2. Key principles or components
+3. Practical examples or applications
+4. Common misconceptions or pitfalls to avoid
+5. How it relates to broader topics
+
+Make your explanation:
+- Clear and accessible to learners
+- Well-structured with headings or bullet points
+- Practical with real-world examples
+- Comprehensive but not overwhelming
+- Engaging and educational
+
+Use markdown formatting for better readability."""
+
+            user_prompt = f"""Concept to explain: {concept_title}
+
+{f"Course context: {course_context}" if course_context else ""}
+
+Please provide a comprehensive explanation of this concept:"""
+
+            messages = [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt}
+            ]
+
+            # Stream response from Anthropic
+            with self.client.messages.stream(
+                model=self.models['research'],
+                max_tokens=1500,
+                temperature=0.7,
+                messages=messages
+            ) as stream:
+                for text in stream.text_stream:
+                    yield {
+                        'content': text,
+                        'is_complete': False,
+                        'error': None
+                    }
+            
+            # Send completion signal
+            yield {
+                'content': '',
+                'is_complete': True,
+                'error': None
+            }
+            
+        except Exception as e:
+            yield {
+                'content': '',
+                'is_complete': True,
+                'error': str(e)
+            }
+
+    def stream_study_chat_response(
+        self, 
+        message: str,
+        course_title: str = "",
+        active_concept: str = "",
+        message_history: Optional[List[Dict[str, str]]] = None
+    ) -> Generator[Dict[str, Any], None, None]:
+        """
+        Stream AI responses for study chat
+        
+        Args:
+            message: User's question or message
+            course_title: Current course title for context
+            active_concept: Currently active concept for context
+            message_history: Previous conversation messages
+            
+        Yields:
+            Dict with content, is_complete, and error fields
+        """
+        try:
+            # Build context-aware system prompt
+            context_parts = []
+            if course_title:
+                context_parts.append(f"Course: {course_title}")
+            if active_concept:
+                context_parts.append(f"Currently studying: {active_concept}")
+            
+            context_str = " | ".join(context_parts) if context_parts else "General study session"
+
+            system_prompt = f"""You are an AI study assistant helping a student learn. 
+
+Context: {context_str}
+
+Your role is to:
+- Answer questions clearly and helpfully
+- Provide explanations tailored to the student's current study focus
+- Offer examples and practical applications
+- Encourage learning and understanding
+- Ask follow-up questions when helpful
+- Break down complex topics into manageable parts
+
+Be supportive, educational, and engaging in your responses."""
+
+            # Build message history
+            messages = [{"role": "system", "content": system_prompt}]
+            
+            # Add conversation history
+            if message_history:
+                for msg in message_history[-10:]:  # Keep last 10 messages for context
+                    if msg.get('role') in ['user', 'assistant']:
+                        messages.append({
+                            "role": msg['role'],
+                            "content": msg['content']
+                        })
+            
+            # Add current message
+            messages.append({"role": "user", "content": message})
+
+            # Stream response from Anthropic
+            with self.client.messages.stream(
+                model=self.models['research'],
+                max_tokens=1000,
+                temperature=0.7,
+                messages=messages
+            ) as stream:
+                for text in stream.text_stream:
+                    yield {
+                        'content': text,
+                        'is_complete': False,
+                        'error': None
+                    }
+            
+            # Send completion signal
+            yield {
+                'content': '',
+                'is_complete': True,
+                'error': None
+            }
+            
+        except Exception as e:
+            yield {
+                'content': '',
+                'is_complete': True,
+                'error': str(e)
+            }
+
     def truncate_context(self, context: str, max_tokens: int = 3000) -> str:
         """Truncate context to fit within token limits"""
         estimated_tokens = self.count_tokens(context)

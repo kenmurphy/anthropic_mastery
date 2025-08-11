@@ -11,7 +11,7 @@ class CourseConcept(EmbeddedDocument):
     )
     status = StringField(
         required=True, 
-        choices=['not_started', 'reviewed', 'not_interested', 'already_know'], 
+        choices=['not_started', 'reviewing', 'reviewed', 'not_interested', 'already_know'], 
         default='not_started'
     )
     type = StringField(
@@ -42,6 +42,13 @@ class Course(Document):
     
     # Structured concepts array with learning status
     concepts = ListField(EmbeddedDocumentField(CourseConcept))
+    
+    # Learning stage tracking
+    current_stage = StringField(
+        required=True,
+        choices=['explore', 'absorb', 'teach_back'],
+        default='explore'
+    )
     
     # Reference back to source cluster (may become orphaned after re-clustering)
     source_cluster_id = StringField(required=True, max_length=50)
@@ -87,6 +94,22 @@ class Course(Document):
             self.save()
             return True
         return False
+    
+    def start_review(self, selected_concept_titles: list):
+        """Start review process by updating concept statuses and course stage"""
+        # Update selected concepts to 'reviewing' status
+        for concept in self.concepts:
+            if concept.title in selected_concept_titles:
+                concept.status = 'reviewing'
+            elif concept.status == 'not_started':
+                concept.status = 'not_interested'
+        
+        # Update course stage to 'absorb'
+        self.current_stage = 'absorb'
+        
+        # Save changes
+        self.save()
+        return True
     
     def to_study_guide_dict(self):
         """Convert to unified study guide format"""
@@ -135,6 +158,7 @@ class Course(Document):
             'conversation_ids': self.conversation_ids,
             'concepts': [concept.to_dict() for concept in self.concepts],
             'source_cluster_id': self.source_cluster_id,
+            'current_stage': self.current_stage,
             'progress': self._calculate_progress(),
             'created_at': format_datetime(self.created_at),
             'updated_at': format_datetime(self.updated_at)

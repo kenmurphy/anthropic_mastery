@@ -1,4 +1,7 @@
 import React, { useState, useEffect } from 'react'
+import ConceptSelector from './ConceptSelector'
+import AbsorbStage from './AbsorbStage'
+import TeachBackStage from './TeachBackStage'
 
 interface Course {
   id: string;
@@ -7,6 +10,7 @@ interface Course {
   conversation_ids: string[];
   concepts: CourseConcept[];
   source_cluster_id: string;
+  current_stage: 'explore' | 'absorb' | 'teach_back';
   progress: number;
   created_at: string;
   updated_at: string;
@@ -15,7 +19,7 @@ interface Course {
 interface CourseConcept {
   title: string;
   difficulty_level: 'beginner' | 'medium' | 'advanced';
-  status: 'not_started' | 'reviewed' | 'not_interested' | 'already_know';
+  status: 'not_started' | 'reviewing' | 'reviewed' | 'not_interested' | 'already_know';
   type: 'original' | 'related';
 }
 
@@ -24,76 +28,46 @@ interface CourseViewProps {
   onBack: () => void;
 }
 
-interface ConceptCardProps {
-  concept: CourseConcept;
-  isRelated?: boolean;
-}
-
-function ConceptCard({ concept, isRelated = false }: ConceptCardProps) {
-  const getDifficultyColor = (level: string) => {
-    switch (level) {
-      case 'beginner': return 'bg-green-100 text-green-800';
-      case 'medium': return 'bg-yellow-100 text-yellow-800';
-      case 'advanced': return 'bg-red-100 text-red-800';
-      default: return 'bg-gray-100 text-gray-800';
-    }
-  };
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'reviewed': return 'bg-blue-100 text-blue-800';
-      case 'already_know': return 'bg-purple-100 text-purple-800';
-      case 'not_interested': return 'bg-gray-100 text-gray-600';
-      case 'not_started': return 'bg-orange-100 text-orange-800';
-      default: return 'bg-gray-100 text-gray-800';
-    }
-  };
-
-  const getStatusText = (status: string) => {
-    switch (status) {
-      case 'reviewed': return 'Reviewed';
-      case 'already_know': return 'Already Know';
-      case 'not_interested': return 'Not Interested';
-      case 'not_started': return 'Not Started';
-      default: return status;
-    }
-  };
-
-  return (
-    <div className={`border rounded-lg p-4 hover:shadow-md transition-shadow ${
-      isRelated ? 'border-purple-200 bg-purple-50/30' : 'border-gray-200 bg-white'
-    }`}>
-      <div className="flex items-start justify-between mb-3">
-        <h4 className="font-medium text-gray-900 text-sm leading-tight">
-          {concept.title}
-        </h4>
-        {isRelated && (
-          <span className="text-xs bg-purple-100 text-purple-700 px-2 py-1 rounded-full ml-2 flex-shrink-0">
-            AI
-          </span>
-        )}
-      </div>
-      
-      <div className="flex items-center gap-2 mt-3">
-        <span className={`text-xs px-2 py-1 rounded-full font-medium ${getDifficultyColor(concept.difficulty_level)}`}>
-          {concept.difficulty_level.charAt(0).toUpperCase() + concept.difficulty_level.slice(1)}
-        </span>
-        <span className={`text-xs px-2 py-1 rounded-full font-medium ${getStatusColor(concept.status)}`}>
-          {getStatusText(concept.status)}
-        </span>
-      </div>
-    </div>
-  );
-}
-
 function CourseView({ courseId, onBack }: CourseViewProps) {
   const [course, setCourse] = useState<Course | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [selectedConcepts, setSelectedConcepts] = useState<Set<string>>(new Set());
+  const [startingReview, setStartingReview] = useState(false);
+  const [currentStage, setCurrentStage] = useState<'explore' | 'absorb' | 'teach_back'>('explore');
 
   useEffect(() => {
     fetchCourse();
   }, [courseId]);
+
+  useEffect(() => {
+    if (course) {
+      setCurrentStage(course.current_stage);
+      // Auto-select concepts that are already in "reviewing" status
+      const reviewingConcepts = course.concepts
+        .filter(concept => concept.status === 'reviewing')
+        .map(concept => concept.title);
+      setSelectedConcepts(new Set(reviewingConcepts));
+    }
+  }, [course]);
+
+  const getStageDisplayName = (stage: string) => {
+    switch (stage) {
+      case 'explore': return 'Explore';
+      case 'absorb': return 'Absorb';
+      case 'teach_back': return 'Teach back';
+      default: return stage;
+    }
+  };
+
+  const getStageIndex = (stage: string) => {
+    switch (stage) {
+      case 'explore': return 0;
+      case 'absorb': return 1;
+      case 'teach_back': return 2;
+      default: return 0;
+    }
+  };
 
   const fetchCourse = async () => {
     try {
@@ -114,6 +88,54 @@ function CourseView({ courseId, onBack }: CourseViewProps) {
       setLoading(false);
     }
   };
+
+  const toggleConceptSelection = (conceptTitle: string) => {
+    setSelectedConcepts(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(conceptTitle)) {
+        newSet.delete(conceptTitle);
+      } else {
+        newSet.add(conceptTitle);
+      }
+      return newSet;
+    });
+  };
+
+  const handleStartReview = async () => {
+    if (!course || selectedConcepts.size === 0) return;
+
+    try {
+      setStartingReview(true);
+      const response = await fetch(`http://localhost:5000/api/courses/${courseId}/start-review`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          selected_concept_titles: Array.from(selectedConcepts)
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setCourse(data.course);
+        setSelectedConcepts(new Set());
+        setError(null);
+      } else {
+        const errorData = await response.json();
+        setError(errorData.error || 'Failed to start review');
+      }
+    } catch (err) {
+      setError('Failed to start review. Please try again.');
+      console.error('Error starting review:', err);
+    } finally {
+      setStartingReview(false);
+    }
+  };
+
+  const isInExploreStage = currentStage === 'explore';
+  const hasSelectableConcepts = course?.concepts.some(c => c.status === 'not_started' || c.status === 'reviewing') || false;
+  const canSelectConcepts = isInExploreStage && hasSelectableConcepts;
 
   if (loading) {
     return (
@@ -178,122 +200,191 @@ function CourseView({ courseId, onBack }: CourseViewProps) {
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 overflow-y-auto p-6">
-        <div className="max-w-4xl mx-auto">
-          {/* Course Header Section */}
-          <div className="bg-white rounded-lg border border-gray-200 p-8 mb-6">
-            <div className="flex items-start gap-4 mb-6">
-              <div className="w-16 h-16 bg-blue-100 rounded-lg flex items-center justify-center">
-                <span className="text-3xl">📚</span>
-              </div>
-              <div className="flex-1">
-                <h1 className="text-2xl font-bold text-gray-900 mb-2">
-                  {course.label}
-                </h1>
-                <p className="text-gray-600 text-base leading-relaxed">
-                  {course.description}
-                </p>
+      <div className="flex-1 overflow-y-auto">
+        {currentStage === 'absorb' ? (
+          // Full width layout for AbsorbStage with header
+          <div className="flex flex-col h-full">
+            {/* Course Header Section */}
+            <div className="p-6 pb-0">
+              <div className="max-w-4xl mx-auto">
+                <div className="bg-white rounded-lg border border-gray-200 p-8 mb-6">
+                  <div className="flex items-start gap-4 mb-6">
+                    <div className="w-16 h-16 bg-blue-100 rounded-lg flex items-center justify-center">
+                      <span className="text-3xl">📚</span>
+                    </div>
+                    <div className="flex-1">
+                      <h1 className="text-2xl font-bold text-gray-900 mb-2">
+                        {course.label}
+                      </h1>
+                      <p className="text-gray-600 text-base leading-relaxed">
+                        {course.description}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Learning Stages */}
+                  <div className="pt-6 border-t border-gray-100">
+                    <h3 className="text-lg font-medium text-gray-800 mb-4">Learning Journey</h3>
+                    
+                    <div className="flex items-center w-full">
+                      {['explore', 'absorb', 'teach_back'].map((stage, index) => {
+                        const isActive = getStageIndex(course.current_stage) >= index;
+                        const isCurrentStage = currentStage === stage;
+                        
+                        return (
+                          <div key={stage} className="flex items-center flex-1">
+                            <div className="flex flex-col items-center w-full">
+                              <button
+                                onClick={() => setCurrentStage(stage as 'explore' | 'absorb' | 'teach_back')}
+                                className={`w-8 h-8 rounded-full flex items-center justify-center border transition-all duration-300 hover:scale-105 ${
+                                  isCurrentStage
+                                    ? 'bg-blue-500 border-blue-500 text-white shadow-md'
+                                    : isActive 
+                                      ? 'bg-orange-100 border-orange-300 text-orange-700 hover:bg-orange-200' 
+                                      : 'bg-gray-100 border-gray-300 text-gray-500 hover:bg-gray-200'
+                                }`}
+                              >
+                                <span className="text-xs font-medium">
+                                  {index + 1}
+                                </span>
+                              </button>
+                              <button
+                                onClick={() => setCurrentStage(stage as 'explore' | 'absorb' | 'teach_back')}
+                                className={`mt-2 text-xs font-medium transition-colors duration-200 ${
+                                  isCurrentStage
+                                    ? 'text-blue-600'
+                                    : isActive 
+                                      ? 'text-orange-700 hover:text-orange-800'
+                                      : 'text-gray-500 hover:text-gray-600'
+                                }`}
+                              >
+                                {getStageDisplayName(stage)}
+                              </button>
+                            </div>
+                            
+                            {index < 2 && (
+                              <div className={`flex-1 h-px mx-3 transition-all duration-300 ${
+                                getStageIndex(course.current_stage) > index 
+                                  ? 'bg-orange-300' 
+                                  : 'bg-gray-300'
+                              }`}></div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
-
-            {/* Course Stats */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-6 border-t border-gray-100">
-              <div className="text-center">
-                <div className="text-2xl font-bold text-blue-600">
-                  {course.conversation_ids.length}
-                </div>
-                <div className="text-sm text-gray-600">
-                  Related Conversation{course.conversation_ids.length !== 1 ? 's' : ''}
-                </div>
-              </div>
-              <div className="text-center">
-                <div className="text-2xl font-bold text-green-600">
-                  {course.concepts.length}
-                </div>
-                <div className="text-sm text-gray-600">
-                  Learning Concept{course.concepts.length !== 1 ? 's' : ''}
-                </div>
-              </div>
-              <div className="text-center">
-                <div className="text-2xl font-bold text-purple-600">
-                  {course.progress}%
-                </div>
-                <div className="text-sm text-gray-600">
-                  Progress Complete
-                </div>
-              </div>
-            </div>
-
-            {/* Progress Bar */}
-            <div className="mt-6">
-              <div className="flex justify-between text-sm text-gray-600 mb-2">
-                <span>Overall Progress</span>
-                <span>{course.progress}% Complete</span>
-              </div>
-              <div className="w-full bg-gray-200 rounded-full h-3">
-                <div 
-                  className="bg-blue-600 h-3 rounded-full transition-all duration-300" 
-                  style={{ width: `${course.progress}%` }}
-                ></div>
-              </div>
-            </div>
-          </div>
-
-          {/* Learning Components */}
-          <div className="bg-white rounded-lg border border-gray-200 p-6">
-            <h2 className="text-xl font-semibold text-gray-900 mb-6">
-              Learning Components
-            </h2>
             
-            {course.concepts.length === 0 ? (
-              <div className="text-center py-8 text-gray-500">
-                <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
-                  <span className="text-xl">📝</span>
-                </div>
-                <p>No concepts available for this course</p>
-              </div>
-            ) : (
-              <div className="space-y-6">
-                {/* Original Concepts */}
-                {course.concepts.filter(concept => concept.type === 'original').length > 0 && (
-                  <div>
-                    <h3 className="text-lg font-medium text-gray-800 mb-4 flex items-center gap-2">
-                      <span className="w-2 h-2 bg-blue-500 rounded-full"></span>
-                      Core Concepts
-                    </h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                      {course.concepts
-                        .filter(concept => concept.type === 'original')
-                        .map((concept, index) => (
-                          <ConceptCard key={`original-${index}`} concept={concept} />
-                        ))}
-                    </div>
+            {/* AbsorbStage Content */}
+            <div className="flex-1">
+              <AbsorbStage 
+                concepts={course.concepts} 
+                courseId={course.id}
+                courseTitle={course.label}
+              />
+            </div>
+          </div>
+        ) : (
+          // Constrained width layout for other stages
+          <div className="p-6">
+            <div className="max-w-4xl mx-auto">
+              {/* Course Header Section */}
+              <div className="bg-white rounded-lg border border-gray-200 p-8 mb-6">
+                <div className="flex items-start gap-4 mb-6">
+                  <div className="w-16 h-16 bg-blue-100 rounded-lg flex items-center justify-center">
+                    <span className="text-3xl">📚</span>
                   </div>
+                  <div className="flex-1">
+                    <h1 className="text-2xl font-bold text-gray-900 mb-2">
+                      {course.label}
+                    </h1>
+                    <p className="text-gray-600 text-base leading-relaxed">
+                      {course.description}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Learning Stages */}
+                <div className="pt-6 border-t border-gray-100">
+                  <h3 className="text-lg font-medium text-gray-800 mb-4">Learning Journey</h3>
+                  
+                  <div className="flex items-center w-full">
+                    {['explore', 'absorb', 'teach_back'].map((stage, index) => {
+                      const isActive = getStageIndex(course.current_stage) >= index;
+                      const isCurrentStage = currentStage === stage;
+                      
+                      return (
+                        <div key={stage} className="flex items-center flex-1">
+                          <div className="flex flex-col items-center w-full">
+                            <button
+                              onClick={() => setCurrentStage(stage as 'explore' | 'absorb' | 'teach_back')}
+                              className={`w-8 h-8 rounded-full flex items-center justify-center border transition-all duration-300 hover:scale-105 ${
+                                isCurrentStage
+                                  ? 'bg-blue-500 border-blue-500 text-white shadow-md'
+                                  : isActive 
+                                    ? 'bg-orange-100 border-orange-300 text-orange-700 hover:bg-orange-200' 
+                                    : 'bg-gray-100 border-gray-300 text-gray-500 hover:bg-gray-200'
+                              }`}
+                            >
+                              <span className="text-xs font-medium">
+                                {index + 1}
+                              </span>
+                            </button>
+                            <button
+                              onClick={() => setCurrentStage(stage as 'explore' | 'absorb' | 'teach_back')}
+                              className={`mt-2 text-xs font-medium transition-colors duration-200 ${
+                                isCurrentStage
+                                  ? 'text-blue-600'
+                                  : isActive 
+                                    ? 'text-orange-700 hover:text-orange-800'
+                                    : 'text-gray-500 hover:text-gray-600'
+                              }`}
+                            >
+                              {getStageDisplayName(stage)}
+                            </button>
+                          </div>
+                          
+                          {index < 2 && (
+                            <div className={`flex-1 h-px mx-3 transition-all duration-300 ${
+                              getStageIndex(course.current_stage) > index 
+                                ? 'bg-orange-300' 
+                                : 'bg-gray-300'
+                            }`}></div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+
+              {/* Stage Content */}
+              <div className="bg-white rounded-lg border border-gray-200 p-6">
+                <h2 className="text-xl font-semibold text-gray-900 mb-6">
+                  {currentStage === 'explore' ? 'Choose topics to master' : getStageDisplayName(currentStage)}
+                </h2>
+                
+                {currentStage === 'explore' && (
+                  <ConceptSelector
+                    concepts={course.concepts}
+                    selectedConcepts={selectedConcepts}
+                    onToggleConceptSelection={toggleConceptSelection}
+                    onStartReview={handleStartReview}
+                    canSelectConcepts={canSelectConcepts}
+                    startingReview={startingReview}
+                  />
                 )}
 
-                {/* Related Concepts */}
-                {course.concepts.filter(concept => concept.type === 'related').length > 0 && (
-                  <div>
-                    <h3 className="text-lg font-medium text-gray-800 mb-4 flex items-center gap-2">
-                      <span className="w-2 h-2 bg-purple-500 rounded-full"></span>
-                      Related Concepts
-                      <span className="text-sm font-normal text-gray-500 ml-2">
-                        (AI Suggested)
-                      </span>
-                    </h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                      {course.concepts
-                        .filter(concept => concept.type === 'related')
-                        .map((concept, index) => (
-                          <ConceptCard key={`related-${index}`} concept={concept} isRelated={true} />
-                        ))}
-                    </div>
-                  </div>
+                {currentStage === 'teach_back' && (
+                  <TeachBackStage concepts={course.concepts} />
                 )}
               </div>
-            )}
+            </div>
           </div>
-        </div>
+        )}
       </div>
     </div>
   );
