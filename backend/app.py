@@ -2,7 +2,7 @@ from flask import Flask, jsonify
 from flask_cors import CORS
 from mongoengine import connect
 from config import config
-from routes import conversation_bp
+from routes import conversation_bp, clustering_bp
 import os
 
 def create_app(config_name=None):
@@ -30,6 +30,7 @@ def create_app(config_name=None):
     
     # Register blueprints
     app.register_blueprint(conversation_bp)
+    app.register_blueprint(clustering_bp)
     
     # Global error handlers
     @app.errorhandler(404)

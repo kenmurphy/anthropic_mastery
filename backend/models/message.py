@@ -1,4 +1,4 @@
-from mongoengine import Document, StringField, DateTimeField
+from mongoengine import Document, StringField, DateTimeField, ListField, FloatField, BooleanField
 from datetime import datetime
 from bson import ObjectId
 
@@ -14,6 +14,11 @@ class Message(Document):
     speaker = StringField(required=True, choices=['user', 'assistant'], max_length=20)
     content = StringField(required=True)
     created_at = DateTimeField(default=datetime.utcnow)
+    
+    # Semantic clustering fields
+    technical_concepts = ListField(StringField())  # Extracted technical concepts
+    embedding = ListField(FloatField())  # 1024-dim vector from Anthropic
+    processed_for_clustering = BooleanField(default=False)  # Analysis status
     
     # Index for efficient queries
     meta = {

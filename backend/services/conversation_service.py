@@ -2,12 +2,20 @@ from typing import List, Optional, Dict, Any
 from models.conversation import Conversation
 from models.message import Message
 from services.anthropic_service import AnthropicService
+from services.message_analysis_service import MessageAnalysisService
+from services.conversation_clustering_service import ConversationClusteringService
+from services.background_clustering_service import BackgroundClusteringService
+import logging
+
+logger = logging.getLogger(__name__)
 
 class ConversationService:
     """Service for managing conversations and Claude interactions"""
     
     def __init__(self):
         self.anthropic_service = AnthropicService()
+        self.message_analysis_service = MessageAnalysisService()
+        self.clustering_service = ConversationClusteringService()
     
     @staticmethod
     def create_conversation(initial_message: str, title: str = None) -> Conversation:
@@ -30,7 +38,15 @@ class ConversationService:
         conversation.save()
         
         # Add initial user message
-        conversation.add_message('user', initial_message)
+        message_id = conversation.add_message('user', initial_message)
+        
+        # Trigger background analysis for the initial message
+        try:
+            background_service = BackgroundClusteringService()
+            background_service.trigger_background_analysis(message_id)
+            logger.info(f"Triggered background analysis for initial message {message_id} in new conversation {conversation.id}")
+        except Exception as e:
+            logger.error(f"Error triggering background analysis for initial message: {str(e)}")
         
         return conversation
     
@@ -76,7 +92,17 @@ class ConversationService:
         Returns:
             Message ID of the added message
         """
-        return conversation.add_message('user', message)
+        message_id = conversation.add_message('user', message)
+        
+        # Trigger background analysis for the user message
+        try:
+            background_service = BackgroundClusteringService()
+            background_service.trigger_background_analysis(message_id)
+            logger.info(f"Triggered background analysis for user message {message_id} in conversation {conversation.id}")
+        except Exception as e:
+            logger.error(f"Error triggering background analysis for user message: {str(e)}")
+        
+        return message_id
     
     def stream_ai_response(self, conversation: Conversation):
         """
@@ -109,6 +135,10 @@ class ConversationService:
                 # If response is complete, save the assistant message
                 if chunk.get('is_complete') and not chunk.get('error'):
                     message_id = conversation.add_message('assistant', accumulated_content)
+                    
+                    # Trigger real-time analysis and clustering
+                    self._trigger_conversation_analysis(conversation)
+                    
                     yield {
                         'content': '',
                         'message_id': message_id,
@@ -168,3 +198,68 @@ class ConversationService:
             title = title[:47] + "..."
         
         return title if title else "New Conversation"
+    
+    def _trigger_conversation_analysis(self, conversation: Conversation):
+        """
+        Trigger background analysis and clustering for a conversation
+        
+        Args:
+            conversation: Conversation to analyze
+        """
+        try:
+            # Get the latest message from the conversation to trigger background analysis
+            messages = Message.get_conversation_messages(str(conversation.id))
+            if messages:
+                latest_message = messages.order_by('-created_at').first()
+                if latest_message:
+                    # Trigger background analysis and clustering
+                    background_service = BackgroundClusteringService()
+                    background_service.trigger_background_analysis(latest_message.message_id)
+                    logger.info(f"Triggered background analysis for message {latest_message.message_id} in conversation {conversation.id}")
+                else:
+                    logger.warning(f"No messages found in conversation {conversation.id}")
+            else:
+                logger.warning(f"Could not retrieve messages for conversation {conversation.id}")
+            
+        except Exception as e:
+            # Don't let analysis errors disrupt the conversation flow
+            logger.error(f"Error triggering background analysis: {str(e)}")
+    
+    def get_conversation_analysis(self, conversation_id: str) -> Dict[str, Any]:
+        """
+        Get analysis results for a conversation
+        
+        Args:
+            conversation_id: ID of the conversation
+            
+        Returns:
+            Dictionary with analysis results
+        """
+        try:
+            # Get technical concepts
+            concepts = self.message_analysis_service.get_conversation_concepts(conversation_id)
+            
+            # Get cluster information
+            cluster = self.clustering_service.get_conversation_cluster(conversation_id)
+            
+            # Get similar conversations
+            similar_conversations = self.clustering_service.find_similar_conversations(conversation_id)
+            
+            return {
+                'conversation_id': conversation_id,
+                'technical_concepts': concepts,
+                'cluster': cluster,
+                'similar_conversations': similar_conversations,
+                'analysis_available': len(concepts) > 0
+            }
+            
+        except Exception as e:
+            logger.error(f"Error getting conversation analysis: {str(e)}")
+            return {
+                'conversation_id': conversation_id,
+                'technical_concepts': [],
+                'cluster': None,
+                'similar_conversations': [],
+                'analysis_available': False,
+                'error': str(e)
+            }
