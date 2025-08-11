@@ -711,7 +711,7 @@ Generate 5-8 related topics that would complement this learning path:"""
         """
         try:
             # Build prompt for concept explanation
-            system_prompt = """You are an AI learning assistant that creates clear, comprehensive explanations of concepts for students.
+            system_message = """You are an AI learning assistant that creates clear, comprehensive explanations of concepts for students.
 
 Your task is to provide a detailed explanation of the given concept that includes:
 1. A clear definition or overview
@@ -735,16 +735,17 @@ Use markdown formatting for better readability."""
 
 Please provide a comprehensive explanation of this concept:"""
 
+            # Build messages array (without system message)
             messages = [
-                {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt}
             ]
 
-            # Stream response from Anthropic
+            # Stream response from Anthropic with system message as separate parameter
             with self.client.messages.stream(
                 model=self.models['research'],
                 max_tokens=1500,
                 temperature=0.7,
+                system=system_message,
                 messages=messages
             ) as stream:
                 for text in stream.text_stream:
@@ -797,7 +798,7 @@ Please provide a comprehensive explanation of this concept:"""
             
             context_str = " | ".join(context_parts) if context_parts else "General study session"
 
-            system_prompt = f"""You are an AI study assistant helping a student learn. 
+            system_message = f"""You are an AI study assistant helping a student learn. 
 
 Context: {context_str}
 
@@ -811,8 +812,8 @@ Your role is to:
 
 Be supportive, educational, and engaging in your responses."""
 
-            # Build message history
-            messages = [{"role": "system", "content": system_prompt}]
+            # Build message history (without system message in the messages array)
+            messages = []
             
             # Add conversation history
             if message_history:
@@ -831,6 +832,7 @@ Be supportive, educational, and engaging in your responses."""
                 model=self.models['research'],
                 max_tokens=1000,
                 temperature=0.7,
+                system=system_message,
                 messages=messages
             ) as stream:
                 for text in stream.text_stream:

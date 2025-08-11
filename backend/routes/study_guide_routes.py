@@ -187,6 +187,27 @@ def start_course_review(course_id):
             'error': str(e)
         }), 500
 
+@study_guide_bp.route('/courses/<course_id>/related-topics', methods=['POST'])
+def generate_related_topics(course_id):
+    """Generate fresh related topics for a course asynchronously"""
+    try:
+        course = StudyGuideService.generate_fresh_related_topics(course_id)
+        return jsonify({
+            'success': True,
+            'course': course.to_dict(),
+            'message': 'Related topics generated successfully'
+        })
+    except ValueError as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 404
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
 @study_guide_bp.route('/courses/<course_id>', methods=['DELETE'])
 def delete_course(course_id):
     """Delete a course by ID"""

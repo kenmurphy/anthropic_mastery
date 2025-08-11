@@ -148,58 +148,67 @@ class StudyGuideService:
     
     @staticmethod
     def get_course_by_id(course_id):
-        """Get course by ID with fresh related topics generated"""
+        """Get course by ID immediately without generating related topics"""
         try:
             course = Course.objects(id=course_id).first()
             if not course:
                 raise ValueError("Course not found")
             
-            # Generate fresh related topics when fetching existing course
-            try:
-                anthropic_service = AnthropicService()
-                
-                # Get current original topics (type='original')
-                original_topics = [concept.title for concept in course.concepts if concept.type == 'original']
-                
-                if original_topics:
-                    # Generate fresh related topics
-                    fresh_related_data = anthropic_service.generate_related_topics(
-                        existing_concepts=original_topics,
-                        course_title=course.label,
-                        course_description=course.description
-                    )
-                    
-                    # Create fresh related concepts
-                    fresh_related_concepts = [
-                        CourseConcept(
-                            title=concept_data['title'],
-                            difficulty_level=concept_data['difficulty_level'],
-                            status='not_started',
-                            type='related'
-                        ) for concept_data in fresh_related_data
-                    ]
-                    
-                    # Replace existing related topics with fresh ones
-                    # Keep original topics, replace related topics
-                    original_concepts = [concept for concept in course.concepts if concept.type == 'original']
-                    all_concepts = original_concepts + fresh_related_concepts
-                    
-                    # Apply deduplication
-                    deduplicated_concepts = StudyGuideService._deduplicate_concepts_by_title(all_concepts)
-                    
-                    # Update course with fresh related topics
-                    course.concepts = deduplicated_concepts
-                    course.save()
-                    
-                    print(f"Generated {len(fresh_related_concepts)} fresh related topics for course: {course.label}")
-                
-            except Exception as e:
-                print(f"Error generating fresh related topics for course {course_id}: {e}")
-                # Continue with existing course data if related topic generation fails
-            
             return course
         except Exception as e:
             print(f"Error getting course by ID: {e}")
+            raise e
+    
+    @staticmethod
+    def generate_fresh_related_topics(course_id):
+        """Generate fresh related topics for a course asynchronously"""
+        try:
+            course = Course.objects(id=course_id).first()
+            if not course:
+                raise ValueError("Course not found")
+            
+            anthropic_service = AnthropicService()
+            
+            # Get current original topics (type='original')
+            original_topics = [concept.title for concept in course.concepts if concept.type == 'original']
+            
+            if not original_topics:
+                return course  # No original topics to base related topics on
+            
+            # Generate fresh related topics
+            fresh_related_data = anthropic_service.generate_related_topics(
+                existing_concepts=original_topics,
+                course_title=course.label,
+                course_description=course.description
+            )
+            
+            # Create fresh related concepts
+            fresh_related_concepts = [
+                CourseConcept(
+                    title=concept_data['title'],
+                    difficulty_level=concept_data['difficulty_level'],
+                    status='not_started',
+                    type='related'
+                ) for concept_data in fresh_related_data
+            ]
+            
+            # Replace existing related topics with fresh ones
+            # Keep original topics, replace related topics
+            original_concepts = [concept for concept in course.concepts if concept.type == 'original']
+            all_concepts = original_concepts + fresh_related_concepts
+            
+            # Apply deduplication
+            deduplicated_concepts = StudyGuideService._deduplicate_concepts_by_title(all_concepts)
+            
+            # Update course with fresh related topics
+            course.concepts = deduplicated_concepts
+            course.save()
+            
+            print(f"Generated {len(fresh_related_concepts)} fresh related topics for course: {course.label}")
+            
+            return course
+        except Exception as e:
+            print(f"Error generating fresh related topics for course {course_id}: {e}")
             raise e
     
     @staticmethod

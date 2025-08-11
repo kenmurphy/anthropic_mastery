@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import MarkdownRenderer from './MarkdownRenderer';
 
 interface CourseConcept {
   title: string;
@@ -48,7 +49,7 @@ function StudyContent({ concepts, courseId, onActiveConceptChange, scrollToConce
     observerRef.current = new IntersectionObserver(
       (entries) => {
         entries.forEach(entry => {
-          if (entry.isIntersecting && entry.intersectionRatio > 0.5) {
+          if (entry.isIntersecting && entry.intersectionRatio > 0.1) {
             const conceptTitle = entry.target.getAttribute('data-concept-title');
             if (conceptTitle) {
               onActiveConceptChange(conceptTitle);
@@ -57,8 +58,8 @@ function StudyContent({ concepts, courseId, onActiveConceptChange, scrollToConce
         });
       },
       {
-        threshold: [0.5],
-        rootMargin: '-20% 0px -20% 0px'
+        threshold: [0.1],
+        rootMargin: '0px 0px -80% 0px'
       }
     );
 
@@ -266,9 +267,7 @@ function StudyContent({ concepts, courseId, onActiveConceptChange, scrollToConce
               )}
               
               {summary?.summary && (
-                <div className="whitespace-pre-wrap text-gray-700">
-                  {summary.summary}
-                </div>
+                <MarkdownRenderer content={summary.summary} />
               )}
               
               {!summary?.summary && !summary?.isLoading && !summary?.error && (

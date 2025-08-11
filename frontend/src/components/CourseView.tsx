@@ -35,6 +35,8 @@ function CourseView({ courseId, onBack }: CourseViewProps) {
   const [selectedConcepts, setSelectedConcepts] = useState<Set<string>>(new Set());
   const [startingReview, setStartingReview] = useState(false);
   const [currentStage, setCurrentStage] = useState<'explore' | 'absorb' | 'teach_back'>('explore');
+  const [loadingRelatedTopics, setLoadingRelatedTopics] = useState(false);
+  const [relatedTopicsError, setRelatedTopicsError] = useState<string | null>(null);
 
   useEffect(() => {
     fetchCourse();
@@ -50,6 +52,43 @@ function CourseView({ courseId, onBack }: CourseViewProps) {
       setSelectedConcepts(new Set(reviewingConcepts));
     }
   }, [course]);
+
+  // Fetch related topics asynchronously after course loads
+  useEffect(() => {
+    if (course && !loadingRelatedTopics) {
+      fetchRelatedTopics();
+    }
+  }, [course?.id]); // Only trigger when course ID changes
+
+  const fetchRelatedTopics = async () => {
+    if (!course) return;
+
+    try {
+      setLoadingRelatedTopics(true);
+      setRelatedTopicsError(null);
+      
+      const response = await fetch(`http://localhost:5000/api/courses/${course.id}/related-topics`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setCourse(data.course);
+        setRelatedTopicsError(null);
+      } else {
+        const errorData = await response.json();
+        setRelatedTopicsError(errorData.error || 'Failed to load related topics');
+      }
+    } catch (err) {
+      setRelatedTopicsError('Failed to load related topics');
+      console.error('Error fetching related topics:', err);
+    } finally {
+      setLoadingRelatedTopics(false);
+    }
+  };
 
   const getStageDisplayName = (stage: string) => {
     switch (stage) {
@@ -224,8 +263,6 @@ function CourseView({ courseId, onBack }: CourseViewProps) {
 
                   {/* Learning Stages */}
                   <div className="pt-6 border-t border-gray-100">
-                    <h3 className="text-lg font-medium text-gray-800 mb-4">Learning Journey</h3>
-                    
                     <div className="flex items-center w-full">
                       {['explore', 'absorb', 'teach_back'].map((stage, index) => {
                         const isActive = getStageIndex(course.current_stage) >= index;
@@ -308,9 +345,7 @@ function CourseView({ courseId, onBack }: CourseViewProps) {
                 </div>
 
                 {/* Learning Stages */}
-                <div className="pt-6 border-t border-gray-100">
-                  <h3 className="text-lg font-medium text-gray-800 mb-4">Learning Journey</h3>
-                  
+                <div className="pt-6 border-t border-gray-100">                  
                   <div className="flex items-center w-full">
                     {['explore', 'absorb', 'teach_back'].map((stage, index) => {
                       const isActive = getStageIndex(course.current_stage) >= index;
@@ -375,6 +410,8 @@ function CourseView({ courseId, onBack }: CourseViewProps) {
                     onStartReview={handleStartReview}
                     canSelectConcepts={canSelectConcepts}
                     startingReview={startingReview}
+                    loadingRelatedTopics={loadingRelatedTopics}
+                    relatedTopicsError={relatedTopicsError}
                   />
                 )}
 

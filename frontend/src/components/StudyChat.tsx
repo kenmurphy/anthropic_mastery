@@ -1,4 +1,5 @@
 import { useState, useRef } from 'react'
+import MarkdownRenderer from './MarkdownRenderer'
 
 interface Message {
   id: string
@@ -177,7 +178,11 @@ function StudyChat({ courseTitle, activeConcept }: StudyChatProps) {
                 ? 'bg-blue-600 text-white' 
                 : 'bg-gray-100 text-gray-900'
             }`}>
-              <div className="whitespace-pre-wrap">{msg.content}</div>
+              {msg.role === 'user' ? (
+                <div className="whitespace-pre-wrap">{msg.content}</div>
+              ) : (
+                <MarkdownRenderer content={msg.content} className="prose-invert" />
+              )}
             </div>
           </div>
         ))}
@@ -186,7 +191,7 @@ function StudyChat({ courseTitle, activeConcept }: StudyChatProps) {
         {streamingContent && (
           <div className="flex justify-start">
             <div className="max-w-[85%] bg-gray-100 text-gray-900 rounded-lg p-3 text-sm">
-              <div className="whitespace-pre-wrap">{streamingContent}</div>
+              <MarkdownRenderer content={streamingContent} />
               <div className="mt-2 flex items-center text-gray-400">
                 <div className="animate-pulse">●</div>
                 <span className="ml-1 text-xs">Assistant is typing...</span>

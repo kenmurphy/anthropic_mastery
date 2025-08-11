@@ -57,7 +57,7 @@ function AbsorbStage({ concepts, courseId, courseTitle }: AbsorbStageProps) {
   return (
     <div className="flex h-full gap-3 p-2" style={{ backgroundColor: "#FAF9F5" }}>
       {/* Column 1: Concept Navigation - Sticky */}
-      <div className="w-60 sticky top-0 self-start">
+      <div className="w-60 sticky top-2 self-start">
         <ConceptNavigation
           concepts={concepts}
           activeConcept={activeConcept}
@@ -76,7 +76,7 @@ function AbsorbStage({ concepts, courseId, courseTitle }: AbsorbStageProps) {
       </div>
 
       {/* Column 3: Study Chat - Sticky */}
-      <div className="w-80 bg-white rounded-lg border border-gray-200 shadow-sm sticky top-0 self-start">
+      <div className="w-90 bg-white rounded-lg border border-gray-200 shadow-sm sticky top-2 self-start">
         <StudyChat
           courseTitle={courseTitle}
           activeConcept={activeConcept || undefined}

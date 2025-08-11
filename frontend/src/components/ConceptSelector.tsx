@@ -104,6 +104,8 @@ interface ConceptSelectorProps {
   onStartReview: () => void;
   canSelectConcepts: boolean;
   startingReview: boolean;
+  loadingRelatedTopics?: boolean;
+  relatedTopicsError?: string | null;
 }
 
 function ConceptSelector({ 
@@ -112,7 +114,9 @@ function ConceptSelector({
   onToggleConceptSelection, 
   onStartReview, 
   canSelectConcepts, 
-  startingReview 
+  startingReview,
+  loadingRelatedTopics = false,
+  relatedTopicsError = null
 }: ConceptSelectorProps) {
   if (concepts.length === 0) {
     return (
@@ -151,15 +155,36 @@ function ConceptSelector({
       )}
 
       {/* Related Concepts */}
-      {concepts.filter(concept => concept.type === 'related').length > 0 && (
-        <div>
-          <h3 className="text-lg font-medium text-gray-800 mb-4 flex items-center gap-2">
-            <span className="w-2 h-2 bg-purple-500 rounded-full"></span>
-            Related Concepts
-            <span className="text-sm font-normal text-gray-500 ml-2">
-              (AI Suggested)
-            </span>
-          </h3>
+      <div>
+        <h3 className="text-lg font-medium text-gray-800 mb-4 flex items-center gap-2">
+          <span className="w-2 h-2 bg-purple-500 rounded-full"></span>
+          Related Concepts
+          <span className="text-sm font-normal text-gray-500 ml-2">
+            (AI Suggested)
+          </span>
+          {loadingRelatedTopics && (
+            <div className="w-4 h-4 border-2 border-purple-500 border-t-transparent rounded-full animate-spin ml-2"></div>
+          )}
+        </h3>
+        
+        {loadingRelatedTopics && concepts.filter(concept => concept.type === 'related').length === 0 && (
+          <div className="text-center py-8 text-gray-500">
+            <div className="w-8 h-8 border-2 border-purple-500 border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
+            <p className="text-sm">Generating related topics...</p>
+          </div>
+        )}
+        
+        {relatedTopicsError && (
+          <div className="text-center py-6 text-red-600 bg-red-50 rounded-lg border border-red-200">
+            <div className="w-8 h-8 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-2">
+              <span className="text-red-600">⚠️</span>
+            </div>
+            <p className="text-sm font-medium">Failed to load related topics</p>
+            <p className="text-xs text-red-500 mt-1">{relatedTopicsError}</p>
+          </div>
+        )}
+        
+        {concepts.filter(concept => concept.type === 'related').length > 0 && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {concepts
               .filter(concept => concept.type === 'related')
@@ -174,8 +199,17 @@ function ConceptSelector({
                 />
               ))}
           </div>
-        </div>
-      )}
+        )}
+        
+        {!loadingRelatedTopics && !relatedTopicsError && concepts.filter(concept => concept.type === 'related').length === 0 && (
+          <div className="text-center py-6 text-gray-400 bg-gray-50 rounded-lg border border-gray-200">
+            <div className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-2">
+              <span className="text-gray-400">🔍</span>
+            </div>
+            <p className="text-sm">No related topics available</p>
+          </div>
+        )}
+      </div>
 
       {/* Start Review Button */}
       {canSelectConcepts && selectedConcepts.size > 0 && (
