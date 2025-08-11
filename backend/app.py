@@ -15,7 +15,7 @@ def create_app(config_name=None):
     
     # Enable CORS with specific configuration for SSE
     CORS(app, 
-         origins=['http://localhost:3000', 'http://localhost:5173', 'http://127.0.0.1:3000', 'http://127.0.0.1:5173'],
+         origins=['http://localhost:3000', 'http://localhost:5173', 'http://localhost:5175', 'http://127.0.0.1:3000', 'http://127.0.0.1:5173', 'http://127.0.0.1:5175'],
          allow_headers=['Content-Type', 'X-User-ID', 'Cache-Control'],
          expose_headers=['Cache-Control'],
          supports_credentials=True)

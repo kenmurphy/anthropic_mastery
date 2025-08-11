@@ -3,7 +3,7 @@ from datetime import datetime
 
 class MessageSchema(Schema):
     """Schema for individual message within a conversation"""
-    message_id = fields.Str(required=True)
+    id = fields.Str(required=True)
     role = fields.Str(required=True, validate=validate.OneOf(['user', 'assistant']))
     content = fields.Str(required=True)
     timestamp = fields.Str(allow_none=True)  # Changed to Str since we're formatting as ISO string

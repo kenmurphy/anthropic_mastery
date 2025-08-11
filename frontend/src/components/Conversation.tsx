@@ -112,9 +112,10 @@ function Conversation({ conversationId, onNewConversationCreated }: Conversation
               }
 
               if (data.is_complete) {
-                // Refresh conversation to get updated messages
-                await refreshConversation(conversationId)
+                // Clear streaming content first
                 setStreamingContent('')
+                // Then refresh conversation to get updated messages
+                await refreshConversation(conversationId)
                 setIsLoading(false)
                 return
               }
@@ -137,6 +138,21 @@ function Conversation({ conversationId, onNewConversationCreated }: Conversation
 
   const streamAIResponse = async (conversationId: string, userMessage: string) => {
     try {
+      // Optimistically add user message to local state
+      if (currentConversation) {
+        const tempUserMessage: Message = {
+          id: `temp-${Date.now()}`,
+          role: 'user',
+          content: userMessage,
+          timestamp: new Date().toISOString()
+        }
+        
+        setCurrentConversation(prev => prev ? {
+          ...prev,
+          messages: [...prev.messages, tempUserMessage]
+        } : null)
+      }
+
       const response = await fetch(`http://localhost:5000/api/conversations/${conversationId}/messages`, {
         method: 'POST',
         headers: {
@@ -176,9 +192,10 @@ function Conversation({ conversationId, onNewConversationCreated }: Conversation
               }
 
               if (data.is_complete) {
-                // Refresh conversation to get updated messages
-                await refreshConversation(conversationId)
+                // Clear streaming content first
                 setStreamingContent('')
+                // Then refresh conversation to get updated messages
+                await refreshConversation(conversationId)
                 setIsLoading(false)
                 return
               }
@@ -196,6 +213,10 @@ function Conversation({ conversationId, onNewConversationCreated }: Conversation
       console.error('Streaming error:', error)
       setIsLoading(false)
       setStreamingContent('')
+      // Refresh conversation to get the correct state after error
+      if (conversationId) {
+        await refreshConversation(conversationId)
+      }
     }
   }
 
@@ -269,7 +290,7 @@ function Conversation({ conversationId, onNewConversationCreated }: Conversation
           </div>
 
           {/* Messages */}
-          <div className="flex-1 overflow-y-auto p-4 space-y-4">
+          <div className="flex-1 overflow-y-auto p-4 space-y-4" style={{ backgroundColor: "#FAF9F5"}}>
             {currentConversation.messages?.map((msg) => (
               <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                 <div className={`max-w-[70%] rounded-lg p-3 ${

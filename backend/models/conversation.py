@@ -1,16 +1,15 @@
-from mongoengine import Document, StringField, DateTimeField, ListField, DictField
+from mongoengine import Document, StringField, DateTimeField
 from datetime import datetime
 from bson import ObjectId
 
 class Conversation(Document):
-    """Conversation model - stores multi-turn conversations with ChatGPT"""
+    """Conversation model - stores conversation metadata, messages stored separately"""
     
     # Collection name in MongoDB
     meta = {'collection': 'conversations'}
     
     # Fields
     title = StringField(required=True, max_length=200)
-    messages = ListField(DictField())  # Array of message objects
     created_at = DateTimeField(default=datetime.utcnow)
     updated_at = DateTimeField(default=datetime.utcnow)
     
@@ -19,35 +18,39 @@ class Conversation(Document):
         self.updated_at = datetime.utcnow()
         return super(Conversation, self).save(*args, **kwargs)
     
-    def add_message(self, role: str, content: str) -> str:
-        """Add a message to the conversation and return message ID"""
-        message_id = str(ObjectId())
-        message = {
-            'message_id': message_id,
-            'role': role,
-            'content': content,
-            'timestamp': datetime.utcnow()
-        }
+    def add_message(self, speaker: str, content: str) -> str:
+        """Add a message to the conversation using the separate Message model"""
+        # Import here to avoid circular imports
+        from .message import Message
         
-        if not self.messages:
-            self.messages = []
+        message = Message.create_message(
+            conversation_id=str(self.id),
+            speaker=speaker,
+            content=content
+        )
         
-        self.messages.append(message)
+        # Update conversation timestamp
         self.save()
-        return message_id
+        
+        return message.message_id
+    
+    def get_messages(self):
+        """Get all messages for this conversation"""
+        # Import here to avoid circular imports
+        from .message import Message
+        return Message.get_conversation_messages(str(self.id))
     
     def get_message_history(self) -> list:
-        """Get conversation messages formatted for OpenAI API"""
-        if not self.messages:
-            return []
-        
-        return [
-            {
-                'role': msg['role'],
-                'content': msg['content']
-            }
-            for msg in self.messages
-        ]
+        """Get conversation messages formatted for AI API"""
+        # Import here to avoid circular imports
+        from .message import Message
+        return Message.get_message_history_for_ai(str(self.id))
+    
+    def get_message_count(self) -> int:
+        """Get the number of messages in this conversation"""
+        # Import here to avoid circular imports
+        from .message import Message
+        return Message.objects(conversation_id=str(self.id)).count()
     
     def to_dict(self, include_messages=True):
         """Convert conversation to dictionary"""
@@ -66,19 +69,12 @@ class Conversation(Document):
             'title': self.title,
             'created_at': format_datetime(self.created_at),
             'updated_at': format_datetime(self.updated_at),
-            'message_count': len(self.messages) if self.messages else 0
+            'message_count': self.get_message_count()
         }
         
-        if include_messages and self.messages:
-            result['messages'] = [
-                {
-                    'message_id': msg.get('message_id'),
-                    'role': msg.get('role'),
-                    'content': msg.get('content'),
-                    'timestamp': format_datetime(msg.get('timestamp'))
-                }
-                for msg in self.messages
-            ]
+        if include_messages:
+            messages = self.get_messages()
+            result['messages'] = [msg.to_dict() for msg in messages]
         
         return result
     

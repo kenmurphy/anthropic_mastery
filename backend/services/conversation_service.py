@@ -1,5 +1,6 @@
 from typing import List, Optional, Dict, Any
 from models.conversation import Conversation
+from models.message import Message
 from services.anthropic_service import AnthropicService
 
 class ConversationService:
@@ -25,10 +26,7 @@ class ConversationService:
             title = ConversationService._generate_title_from_message(initial_message)
         
         # Create conversation
-        conversation = Conversation(
-            title=title,
-            messages=[]
-        )
+        conversation = Conversation(title=title)
         conversation.save()
         
         # Add initial user message
@@ -141,7 +139,7 @@ class ConversationService:
             anthropic_service = AnthropicService()
         
         # Only update title if conversation has multiple messages
-        if len(conversation.messages) >= 3:  # User + Assistant + User (at least)
+        if conversation.get_message_count() >= 3:  # User + Assistant + User (at least)
             try:
                 new_title = anthropic_service.generate_conversation_title(
                     conversation.get_message_history()
