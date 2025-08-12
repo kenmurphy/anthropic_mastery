@@ -34,3 +34,5 @@ services:
         value: 1
       - key: CLUSTERING_TIME_THRESHOLD_MINUTES
         value: 5
+      - key: VERCEL_DOMAIN
+        value: anthropic-mastery.vercel.app

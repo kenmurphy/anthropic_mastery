@@ -28,20 +28,19 @@ def create_app(config_name=None):
         'http://localhost:5175', 
         'http://127.0.0.1:3000', 
         'http://127.0.0.1:5173', 
-        'http://127.0.0.1:5175'
+        'http://127.0.0.1:5175',
+        # Production origins - explicitly listed
+        'https://anthropic-mastery.vercel.app',
+        'https://anthropic-mastery.onrender.com'
     ]
     
-    # Add production Vercel domain if specified
+    # Add production Vercel domain if specified via environment variable
     vercel_domain = os.environ.get('VERCEL_DOMAIN')
     if vercel_domain:
-        allowed_origins.extend([
-            f'https://{vercel_domain}',
-            f'https://{vercel_domain}.vercel.app'
-        ])
-    
-    # Allow all Vercel preview deployments in production
-    if config_name == 'production':
-        allowed_origins.append('https://*.vercel.app')
+        # Handle both with and without .vercel.app suffix
+        if not vercel_domain.endswith('.vercel.app'):
+            allowed_origins.append(f'https://{vercel_domain}.vercel.app')
+        allowed_origins.append(f'https://{vercel_domain}')
     
     CORS(app, 
          origins=allowed_origins,
