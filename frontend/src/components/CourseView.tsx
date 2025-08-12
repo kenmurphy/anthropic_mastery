@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react'
 import ConceptSelector from './ConceptSelector'
 import AbsorbStage from './AbsorbStage'
 import TeachBackStage from './TeachBackStage'
+import type { CourseConcept } from '../types/course'
 
 interface Course {
   id: string;
@@ -14,13 +15,6 @@ interface Course {
   progress: number;
   created_at: string;
   updated_at: string;
-}
-
-interface CourseConcept {
-  title: string;
-  difficulty_level: 'beginner' | 'medium' | 'advanced';
-  status: 'not_started' | 'reviewing' | 'reviewed' | 'not_interested' | 'already_know';
-  type: 'original' | 'related';
 }
 
 interface CourseViewProps {
@@ -37,9 +31,12 @@ function CourseView({ courseId, onBack }: CourseViewProps) {
   const [currentStage, setCurrentStage] = useState<'explore' | 'absorb' | 'teach_back'>('explore');
   const [loadingRelatedTopics, setLoadingRelatedTopics] = useState(false);
   const [relatedTopicsError, setRelatedTopicsError] = useState<string | null>(null);
+  const [loadingOriginalTopics, setLoadingOriginalTopics] = useState(false);
+  const [originalTopicsError, setOriginalTopicsError] = useState<string | null>(null);
+  const [isCluster, setIsCluster] = useState(false);
 
   useEffect(() => {
-    fetchCourse();
+    fetchCourseOrCreateFromCluster();
   }, [courseId]);
 
   useEffect(() => {
@@ -59,6 +56,53 @@ function CourseView({ courseId, onBack }: CourseViewProps) {
       fetchRelatedTopics();
     }
   }, [course?.id]); // Only trigger when course ID changes
+
+  const fetchCourseOrCreateFromCluster = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      // First, try to fetch as a course
+      const courseResponse = await fetch(`http://localhost:5000/api/courses/${courseId}`);
+      
+      if (courseResponse.ok) {
+        // It's an existing course
+        const data = await courseResponse.json();
+        setCourse(data.course);
+        setIsCluster(false);
+        return;
+      }
+      
+      // If course fetch failed, it might be a cluster ID
+      // Try to create a course from the cluster
+      setIsCluster(true);
+      setLoadingOriginalTopics(true);
+      setOriginalTopicsError(null);
+      
+      const createResponse = await fetch(`http://localhost:5000/api/study-guides/${courseId}/start`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: 'cluster' })
+      });
+
+      if (createResponse.ok) {
+        const createData = await createResponse.json();
+        setCourse(createData.course);
+        setLoadingOriginalTopics(false);
+      } else {
+        const errorData = await createResponse.json();
+        setOriginalTopicsError(errorData.error || 'Failed to create course from cluster');
+        setLoadingOriginalTopics(false);
+        setError('Failed to load course or create from cluster');
+      }
+    } catch (err) {
+      setError('Failed to load course. Make sure the backend server is running.');
+      setLoadingOriginalTopics(false);
+      console.error('Error fetching course or creating from cluster:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const fetchRelatedTopics = async () => {
     if (!course) return;
@@ -96,35 +140,6 @@ function CourseView({ courseId, onBack }: CourseViewProps) {
       case 'absorb': return 'Absorb';
       case 'teach_back': return 'Teach back';
       default: return stage;
-    }
-  };
-
-  const getStageIndex = (stage: string) => {
-    switch (stage) {
-      case 'explore': return 0;
-      case 'absorb': return 1;
-      case 'teach_back': return 2;
-      default: return 0;
-    }
-  };
-
-  const fetchCourse = async () => {
-    try {
-      setLoading(true);
-      const response = await fetch(`http://localhost:5000/api/courses/${courseId}`);
-      
-      if (response.ok) {
-        const data = await response.json();
-        setCourse(data.course);
-        setError(null);
-      } else {
-        setError('Failed to load course details');
-      }
-    } catch (err) {
-      setError('Failed to load course. Make sure the backend server is running.');
-      console.error('Error fetching course:', err);
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -173,7 +188,7 @@ function CourseView({ courseId, onBack }: CourseViewProps) {
   };
 
   const isInExploreStage = currentStage === 'explore';
-  const hasSelectableConcepts = course?.concepts.some(c => c.status === 'not_started' || c.status === 'reviewing') || false;
+  const hasSelectableConcepts = course?.concepts.some(c => c.status === 'not_started') || false;
   const canSelectConcepts = isInExploreStage && hasSelectableConcepts;
 
   if (loading) {
@@ -209,7 +224,7 @@ function CourseView({ courseId, onBack }: CourseViewProps) {
             <h3 className="text-lg font-medium text-gray-900 mb-2">Error Loading Course</h3>
             <p className="text-gray-600 mb-4">{error}</p>
             <button
-              onClick={fetchCourse}
+              onClick={fetchCourseOrCreateFromCluster}
               className="bg-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700"
             >
               Try Again
@@ -232,136 +247,45 @@ function CourseView({ courseId, onBack }: CourseViewProps) {
             <span>←</span>
             <span>Back to Study Guides</span>
           </button>
-          <div className="text-sm text-gray-500">
-            Course Progress: {course.progress}%
-          </div>
         </div>
       </div>
 
       {/* Main Content */}
       <div className="flex-1 overflow-y-auto">
-        {currentStage === 'absorb' ? (
-          // Full width layout for AbsorbStage with header
-          <div className="flex flex-col h-full">
-            {/* Course Header Section */}
-            <div className="p-6 pb-0">
-              <div className="max-w-4xl mx-auto">
-                <div className="bg-white rounded-lg border border-gray-200 p-8 mb-6">
-                  <div className="flex items-start gap-4 mb-6">
-                    <div className="w-16 h-16 bg-blue-100 rounded-lg flex items-center justify-center">
-                      <span className="text-3xl">📚</span>
-                    </div>
-                    <div className="flex-1">
-                      <h1 className="text-2xl font-bold text-gray-900 mb-2">
-                        {course.label}
-                      </h1>
-                      <p className="text-gray-600 text-base leading-relaxed">
-                        {course.description}
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Learning Stages */}
-                  <div className="pt-6 border-t border-gray-100">
-                    <div className="flex items-center w-full">
-                      {['explore', 'absorb', 'teach_back'].map((stage, index) => {
-                        const isActive = getStageIndex(course.current_stage) >= index;
-                        const isCurrentStage = currentStage === stage;
-                        
-                        return (
-                          <div key={stage} className="flex items-center flex-1">
-                            <div className="flex flex-col items-center w-full">
-                              <button
-                                onClick={() => setCurrentStage(stage as 'explore' | 'absorb' | 'teach_back')}
-                                className={`w-8 h-8 rounded-full flex items-center justify-center border transition-all duration-300 hover:scale-105 ${
-                                  isCurrentStage
-                                    ? 'bg-blue-500 border-blue-500 text-white shadow-md'
-                                    : isActive 
-                                      ? 'bg-orange-100 border-orange-300 text-orange-700 hover:bg-orange-200' 
-                                      : 'bg-gray-100 border-gray-300 text-gray-500 hover:bg-gray-200'
-                                }`}
-                              >
-                                <span className="text-xs font-medium">
-                                  {index + 1}
-                                </span>
-                              </button>
-                              <button
-                                onClick={() => setCurrentStage(stage as 'explore' | 'absorb' | 'teach_back')}
-                                className={`mt-2 text-xs font-medium transition-colors duration-200 ${
-                                  isCurrentStage
-                                    ? 'text-blue-600'
-                                    : isActive 
-                                      ? 'text-orange-700 hover:text-orange-800'
-                                      : 'text-gray-500 hover:text-gray-600'
-                                }`}
-                              >
-                                {getStageDisplayName(stage)}
-                              </button>
-                            </div>
-                            
-                            {index < 2 && (
-                              <div className={`flex-1 h-px mx-3 transition-all duration-300 ${
-                                getStageIndex(course.current_stage) > index 
-                                  ? 'bg-orange-300' 
-                                  : 'bg-gray-300'
-                              }`}></div>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
+        {/* Universal Course Header Section */}
+        <div className="p-6 pb-0">
+          <div className="max-w-4xl mx-auto">
+            <div className="p-8 mb-3">
+              <div className="flex items-start gap-4 mb-6">
+                <div className="w-16 h-16 bg-blue-100 rounded-lg flex items-center justify-center">
+                  <span className="text-3xl">📚</span>
+                </div>
+                <div className="flex-1">
+                  <h1 className="text-2xl font-bold text-gray-900 mb-2">
+                    {course.label}
+                </h1>
+                  <p className="text-gray-600 text-base leading-relaxed">
+                    {course.description}
+                  </p>
                 </div>
               </div>
-            </div>
-            
-            {/* AbsorbStage Content */}
-            <div className="flex-1">
-              <AbsorbStage 
-                concepts={course.concepts} 
-                courseId={course.id}
-                courseTitle={course.label}
-              />
-            </div>
-          </div>
-        ) : (
-          // Constrained width layout for other stages
-          <div className="p-6">
-            <div className="max-w-4xl mx-auto">
-              {/* Course Header Section */}
-              <div className="bg-white rounded-lg border border-gray-200 p-8 mb-6">
-                <div className="flex items-start gap-4 mb-6">
-                  <div className="w-16 h-16 bg-blue-100 rounded-lg flex items-center justify-center">
-                    <span className="text-3xl">📚</span>
-                  </div>
-                  <div className="flex-1">
-                    <h1 className="text-2xl font-bold text-gray-900 mb-2">
-                      {course.label}
-                    </h1>
-                    <p className="text-gray-600 text-base leading-relaxed">
-                      {course.description}
-                    </p>
-                  </div>
-                </div>
 
-                {/* Learning Stages */}
-                <div className="pt-6 border-t border-gray-100">                  
-                  <div className="flex items-center w-full">
-                    {['explore', 'absorb', 'teach_back'].map((stage, index) => {
-                      const isActive = getStageIndex(course.current_stage) >= index;
-                      const isCurrentStage = currentStage === stage;
-                      
-                      return (
-                        <div key={stage} className="flex items-center flex-1">
+              {/* Learning Stages */}
+              <div className="pt-6">
+                <div className="flex items-center w-full">
+                  {['explore', 'absorb', 'teach_back'].map((stage, index) => {
+                    const isCurrentStage = currentStage === stage;
+                    
+                    return (
+                      <React.Fragment key={stage}>
+                        <div className="flex items-center flex-1">
                           <div className="flex flex-col items-center w-full">
                             <button
                               onClick={() => setCurrentStage(stage as 'explore' | 'absorb' | 'teach_back')}
                               className={`w-8 h-8 rounded-full flex items-center justify-center border transition-all duration-300 hover:scale-105 ${
                                 isCurrentStage
-                                  ? 'bg-blue-500 border-blue-500 text-white shadow-md'
-                                  : isActive 
-                                    ? 'bg-orange-100 border-orange-300 text-orange-700 hover:bg-orange-200' 
-                                    : 'bg-gray-100 border-gray-300 text-gray-500 hover:bg-gray-200'
+                                  ? 'bg-orange-500 border-orange-500 text-white shadow-md'
+                                  : 'bg-gray-100 border-gray-300 text-gray-500 hover:bg-gray-200'
                               }`}
                             >
                               <span className="text-xs font-medium">
@@ -372,52 +296,69 @@ function CourseView({ courseId, onBack }: CourseViewProps) {
                               onClick={() => setCurrentStage(stage as 'explore' | 'absorb' | 'teach_back')}
                               className={`mt-2 text-xs font-medium transition-colors duration-200 ${
                                 isCurrentStage
-                                  ? 'text-blue-600'
-                                  : isActive 
-                                    ? 'text-orange-700 hover:text-orange-800'
-                                    : 'text-gray-500 hover:text-gray-600'
+                                  ? 'text-orange-600'
+                                  : 'text-gray-500 hover:text-gray-600'
                               }`}
                             >
                               {getStageDisplayName(stage)}
                             </button>
                           </div>
-                          
-                          {index < 2 && (
-                            <div className={`flex-1 h-px mx-3 transition-all duration-300 ${
-                              getStageIndex(course.current_stage) > index 
-                                ? 'bg-orange-300' 
-                                : 'bg-gray-300'
-                            }`}></div>
-                          )}
                         </div>
-                      );
-                    })}
-                  </div>
+                        {index < 2 && (
+                          <div className="w-16 flex flex-col items-center justify-center relative">
+                            {/* Horizontal border */}
+                            <div className="absolute top-1/2 left-0 right-0 h-0.5 bg-gray-300 transition-all duration-300" style={{ zIndex: 0 }}></div>
+                          </div>
+                        )}
+                      </React.Fragment>
+                    );
+                  })}
                 </div>
               </div>
-
-              {/* Stage Content */}
+            </div>
+          </div>
+        </div>
+        
+        {/* Stage Content */}
+        {currentStage === 'absorb' ? (
+          // Full width layout for AbsorbStage
+          <div className="flex-1">
+            <AbsorbStage 
+              concepts={course.concepts} 
+              courseId={course.id}
+              courseTitle={course.label}
+            />
+          </div>
+        ) : currentStage === 'teach_back' ? (
+          // Full width layout for TeachBackStage
+          <div className="flex-1">
+            <TeachBackStage 
+              concepts={course.concepts}
+              courseId={course.id}
+              courseTitle={course.label}
+            />
+          </div>
+        ) : (
+          // Constrained width layout for Explore stage
+          <div className="p-6">
+            <div className="max-w-4xl mx-auto">
               <div className="bg-white rounded-lg border border-gray-200 p-6">
                 <h2 className="text-xl font-semibold text-gray-900 mb-6">
-                  {currentStage === 'explore' ? 'Choose topics to master' : getStageDisplayName(currentStage)}
+                  Choose topics to master
                 </h2>
                 
-                {currentStage === 'explore' && (
-                  <ConceptSelector
-                    concepts={course.concepts}
-                    selectedConcepts={selectedConcepts}
-                    onToggleConceptSelection={toggleConceptSelection}
-                    onStartReview={handleStartReview}
-                    canSelectConcepts={canSelectConcepts}
-                    startingReview={startingReview}
-                    loadingRelatedTopics={loadingRelatedTopics}
-                    relatedTopicsError={relatedTopicsError}
-                  />
-                )}
-
-                {currentStage === 'teach_back' && (
-                  <TeachBackStage concepts={course.concepts} />
-                )}
+                <ConceptSelector
+                  concepts={course.concepts}
+                  selectedConcepts={selectedConcepts}
+                  onToggleConceptSelection={toggleConceptSelection}
+                  onStartReview={handleStartReview}
+                  canSelectConcepts={canSelectConcepts}
+                  startingReview={startingReview}
+                  loadingRelatedTopics={loadingRelatedTopics}
+                  relatedTopicsError={relatedTopicsError}
+                  loadingOriginalTopics={loadingOriginalTopics}
+                  originalTopicsError={originalTopicsError}
+                />
               </div>
             </div>
           </div>

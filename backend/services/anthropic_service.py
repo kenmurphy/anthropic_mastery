@@ -1,6 +1,5 @@
 import os
 import json
-import difflib
 from typing import Generator, List, Dict, Any, Optional
 from anthropic import Anthropic
 from datetime import datetime
@@ -23,383 +22,7 @@ class AnthropicService:
             'cards': 'claude-3-5-sonnet-20241022'  # Comprehensive analysis for cards
         }
     
-    def stream_research(
-        self, 
-        thread_context: str, 
-        selected_text: str, 
-        message: str, 
-        conversation_history: List[Dict],
-        last_updated_Thought: Dict = None
-    ) -> Generator[Dict[str, Any], None, None]:
-        """
-        Stream AI research responses for sidebar chat
-        
-        Args:
-            thread_context: Full thread content for context
-            selected_text: User's selected text
-            message: User's question/instruction
-            conversation_history: Previous conversation messages
-            last_updated_Thought: Last updated thought context
-            
-        Yields:
-            Dict with content, is_complete, and error fields
-        """
-        try:
-            # Build conversation messages
-            messages = self._build_research_messages(
-                thread_context, selected_text, message, conversation_history, last_updated_Thought
-            )
-            
-            # Extract system message if present
-            system_message = None
-            if messages and messages[0].get('role') == 'system':
-                system_message = messages[0]['content']
-                messages = messages[1:]  # Remove system message from messages list
-            
-            # Stream response from Anthropic
-            with self.client.messages.stream(
-                model=self.models['research'],
-                max_tokens=2000,
-                temperature=0.7,
-                system=system_message,
-                messages=messages
-            ) as stream:
-                for text in stream.text_stream:
-                    yield {
-                        'content': text,
-                        'is_complete': False,
-                        'error': None
-                    }
-            
-            # Send completion signal
-            yield {
-                'content': '',
-                'is_complete': True,
-                'error': None
-            }
-            
-        except Exception as e:
-            yield {
-                'content': '',
-                'is_complete': True,
-                'error': str(e)
-            }
     
-    def stream_snippet_edit(
-        self, 
-        text: str, 
-        selected_text: str, 
-        instruction: str
-    ) -> Generator[Dict[str, Any], None, None]:
-        """
-        Stream AI snippet edits for Command-K functionality
-        
-        Args:
-            text: Full Thought content
-            selected_text: Highlighted text to edit
-            instruction: User's edit instruction
-            
-        Yields:
-            Dict with original_text, edited_text, diff_operations, is_complete, error
-        """
-        try:
-            # Build edit prompt
-            messages = self._build_snippet_messages(text, selected_text, instruction)
-            
-            # Extract system message if present
-            system_message = None
-            if messages and messages[0].get('role') == 'system':
-                system_message = messages[0]['content']
-                messages = messages[1:]
-            
-            accumulated_content = ""
-            
-            # Stream response from Anthropic
-            with self.client.messages.stream(
-                model=self.models['snippets'],
-                max_tokens=1000,
-                temperature=0.3,  # Lower temperature for more consistent edits
-                system=system_message,
-                messages=messages
-            ) as stream:
-                for text in stream.text_stream:
-                    accumulated_content += text
-                    
-                    yield {
-                        'original_text': selected_text,
-                        'edited_text': accumulated_content,
-                        'diff_operations': [],  # Will be computed on completion
-                        'is_complete': False,
-                        'error': None
-                    }
-            
-            # Compute final diff operations
-            diff_ops = self._compute_diff_operations(selected_text, accumulated_content)
-            
-            # Send completion with diff
-            yield {
-                'original_text': selected_text,
-                'edited_text': accumulated_content,
-                'diff_operations': diff_ops,
-                'is_complete': True,
-                'error': None
-            }
-            
-        except Exception as e:
-            yield {
-                'original_text': selected_text,
-                'edited_text': '',
-                'diff_operations': [],
-                'is_complete': True,
-                'error': str(e)
-            }
-    
-    def stream_card_response(
-        self, 
-        thread_context: str, 
-        card_type: str, 
-        focus_instruction: str = ""
-    ) -> Generator[Dict[str, Any], None, None]:
-        """
-        Stream AI card responses for additional AI cards
-        
-        Args:
-            thread_context: Full thread content
-            card_type: Type of card (summary, questions, etc.)
-            focus_instruction: Optional focus instruction
-            
-        Yields:
-            Dict with content, card_type, is_complete, error
-        """
-        try:
-            # Build card-specific prompt
-            messages = self._build_card_messages(thread_context, card_type, focus_instruction)
-            
-            # Extract system message if present
-            system_message = None
-            if messages and messages[0].get('role') == 'system':
-                system_message = messages[0]['content']
-                messages = messages[1:]
-            
-            # Stream response from Anthropic
-            with self.client.messages.stream(
-                model=self.models['cards'],
-                max_tokens=1500,
-                temperature=0.7,
-                system=system_message,
-                messages=messages
-            ) as stream:
-                for text in stream.text_stream:
-                    yield {
-                        'content': text,
-                        'card_type': card_type,
-                        'is_complete': False,
-                        'error': None
-                    }
-            
-            # Send completion signal
-            yield {
-                'content': '',
-                'card_type': card_type,
-                'is_complete': True,
-                'error': None
-            }
-            
-        except Exception as e:
-            yield {
-                'content': '',
-                'card_type': card_type,
-                'is_complete': True,
-                'error': str(e)
-            }
-    
-    def _build_research_messages(
-        self, 
-        thread_context: str, 
-        selected_text: str, 
-        message: str, 
-        conversation_history: List[Dict],
-        last_updated_Thought: Dict = None
-    ) -> List[Dict[str, str]]:
-        """Build messages for research API"""
-        
-        # Build a simplified system prompt that focuses on the last updated Thought (if any)
-        target_Thought_id = last_updated_Thought.get('id') if last_updated_Thought else None
-        Thought_text = ""
-        if last_updated_Thought and last_updated_Thought.get('content'):
-            Thought_content = last_updated_Thought.get('content', {})
-            Thought_text = Thought_content.get('text', '') or str(Thought_content)
-
-        system_prompt_parts = [
-            "You are an AI writing assistant for a note-taking system.",
-            "",
-            "Context:",
-        ]
-
-        if target_Thought_id and Thought_text.strip():
-            system_prompt_parts.append(
-                f"The user just updated this Thought (ID: {target_Thought_id}): {Thought_text.strip()}"
-            )
-
-        system_prompt_parts.append(f"Full thread context: {thread_context}")
-
-        if selected_text:
-            system_prompt_parts.append(f"User's selected text: \"{selected_text}\"")
-        else:
-            system_prompt_parts.append("No text currently selected.")
-
-        system_prompt_parts.extend([
-            "",
-            "Instructions:",
-            "- Focus first on the Thought the user just updated (if provided).",
-            "- Answer any user questions. Use full prose when the topic needs depth,",
-            "  then add a *note-version* summary (concise bullet points or fragments).",
-            "- Suggest specific text that could be inserted into that Thought, always in concise note style.",
-            "- If the current Thought is missing or unrelated, consider the broader thread context.",
-            "- Keep every suggestion actionable and concrete.",
-            "- If your suggestion is effectively identical to the current Thought, treat it as a no-op:",
-            "  * Return that text as the `content`, and set `suggestions` to an empty array.",
-            "",
-            "NOTE STYLE GUIDELINES (for summaries & suggestions):",
-            "- Prefer Markdown bullets (\"- \") or numbered steps.",
-            "- One idea per line; omit filler words.",
-            "- Sentence fragments are fine if meaning is clear (e.g., \"Add hook about user benefit\").",
-            "",
-            "RESPONSE FORMAT (respond ONLY with valid JSON):",
-            "{",
-            '  "content": "<full answer (if needed) **plus** note-version summary or identical text>",',
-            '  "suggestions": [',
-            "    {",
-            '      "title": "<Short suggestion title>",',
-            '      "Thought_id": "<Thought id if suggestion applies to a specific Thought, else null>",',
-            '      "suggestion": "<Concrete, note-style text to insert into the Thought>"',
-            "    }",
-            "    // ... more suggestions",
-            "  ]",
-            "}",
-            "",
-            "Do not include any explanations outside the JSON. Be concise, practical, and consistent."
-        ])
-
-        system_prompt = "\n".join(system_prompt_parts)
-        messages = [{"role": "system", "content": system_prompt}]
-        
-        # Add conversation history
-        for item in conversation_history:
-            if item.get('role') in ['user', 'assistant']:
-                messages.append({
-                    "role": item['role'],
-                    "content": item['content']
-                })
-        
-        # Add current user message
-        messages.append({"role": "user", "content": message})
-        
-        return messages
-    
-    def _build_snippet_messages(
-        self, 
-        text: str, 
-        selected_text: str, 
-        instruction: str
-    ) -> List[Dict[str, str]]:
-        """Build messages for snippet editing"""
-        
-        system_prompt = """You are an AI assistant that helps edit text based on user instructions. 
-        
-Your task is to:
-1. Take the selected text and apply the user's instruction
-2. Return ONLY the edited version of the selected text
-3. Maintain the original meaning unless explicitly asked to change it
-4. Keep the same tone and style unless instructed otherwise
-5. Be precise and focused on the specific instruction
-
-Do not add explanations or commentary - just return the edited text."""
-
-        user_prompt = f"""Full context: {text}
-
-Selected text to edit: "{selected_text}"
-
-Instruction: {instruction}
-
-Please edit the selected text according to the instruction:"""
-
-        return [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_prompt}
-        ]
-    
-    def _build_card_messages(
-        self, 
-        thread_context: str, 
-        card_type: str, 
-        focus_instruction: str
-    ) -> List[Dict[str, str]]:
-        """Build messages for card generation"""
-        
-        card_prompts = {
-            'summary': "Provide a concise summary of the main points and key takeaways from this content.",
-            'questions': "Generate thoughtful questions that would help deepen understanding of this content.",
-            'insights': "Identify key insights, patterns, or connections within this content.",
-            'connections': "Suggest how this content connects to broader topics, concepts, or fields of study.",
-            'next_steps': "Recommend next steps, further research, or actions based on this content."
-        }
-        
-        base_prompt = card_prompts.get(card_type, "Analyze this content and provide helpful insights.")
-        
-        if focus_instruction:
-            base_prompt += f" Focus specifically on: {focus_instruction}"
-        
-        system_prompt = f"""You are an AI assistant helping with content analysis and learning. 
-        
-Your task is to analyze the provided content and {base_prompt}
-
-Be specific, actionable, and helpful. Structure your response clearly with bullet points or numbered lists when appropriate."""
-
-        user_prompt = f"""Content to analyze:
-{thread_context}
-
-Please provide your analysis:"""
-
-        return [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_prompt}
-        ]
-    
-    def _compute_diff_operations(self, original: str, edited: str) -> List[Dict[str, str]]:
-        """Compute diff operations between original and edited text"""
-        
-        differ = difflib.SequenceMatcher(None, original, edited)
-        operations = []
-        
-        for tag, i1, i2, j1, j2 in differ.get_opcodes():
-            if tag == 'equal':
-                operations.append({
-                    'operation': 'equal',
-                    'text': original[i1:i2]
-                })
-            elif tag == 'delete':
-                operations.append({
-                    'operation': 'delete',
-                    'text': original[i1:i2]
-                })
-            elif tag == 'insert':
-                operations.append({
-                    'operation': 'insert',
-                    'text': edited[j1:j2]
-                })
-            elif tag == 'replace':
-                # Split replace into delete + insert
-                operations.append({
-                    'operation': 'delete',
-                    'text': original[i1:i2]
-                })
-                operations.append({
-                    'operation': 'insert',
-                    'text': edited[j1:j2]
-                })
-        
-        return operations
     
     def count_tokens(self, text: str) -> int:
         """Estimate token count for text (rough approximation)"""
@@ -669,9 +292,10 @@ Generate 5-8 related topics that would complement this learning path:"""
                 if isinstance(topic, dict) and 'title' in topic and 'difficulty_level' in topic:
                     # Validate difficulty level
                     if topic['difficulty_level'] in ['beginner', 'medium', 'advanced']:
+                        # Only extract the fields we need, ignore any other fields from AI response
                         validated_topics.append({
-                            'title': topic['title'][:200],  # Truncate to max length
-                            'difficulty_level': topic['difficulty_level']
+                            'title': str(topic['title'])[:200],  # Ensure string and truncate to max length
+                            'difficulty_level': str(topic['difficulty_level'])
                         })
             
             return validated_topics[:8]  # Limit to 8 related topics max
@@ -722,9 +346,8 @@ Your task is to provide a detailed explanation of the given concept that include
 
 Make your explanation:
 - Clear and accessible to learners
-- Well-structured with headings or bullet points
 - Practical with real-world examples
-- Comprehensive but not overwhelming
+- Comprehensive but not overwhelming. Don't make it too long.
 - Engaging and educational
 
 Use markdown formatting for better readability."""
@@ -831,6 +454,100 @@ Be supportive, educational, and engaging in your responses."""
             with self.client.messages.stream(
                 model=self.models['research'],
                 max_tokens=1000,
+                temperature=0.7,
+                system=system_message,
+                messages=messages
+            ) as stream:
+                for text in stream.text_stream:
+                    yield {
+                        'content': text,
+                        'is_complete': False,
+                        'error': None
+                    }
+            
+            # Send completion signal
+            yield {
+                'content': '',
+                'is_complete': True,
+                'error': None
+            }
+            
+        except Exception as e:
+            yield {
+                'content': '',
+                'is_complete': True,
+                'error': str(e)
+            }
+
+    def stream_teachback_chat_response(
+        self, 
+        message: str,
+        course_title: str = "",
+        active_concept: str = "",
+        message_history: Optional[List[Dict[str, str]]] = None
+    ) -> Generator[Dict[str, Any], None, None]:
+        """
+        Stream AI responses for TeachBack chat (teaching assistant)
+        
+        Args:
+            message: User's question or message
+            course_title: Current course title for context
+            active_concept: Currently active concept being taught
+            message_history: Previous conversation messages
+            
+        Yields:
+            Dict with content, is_complete, and error fields
+        """
+        try:
+            # Build context-aware system prompt for teaching assistance
+            context_parts = []
+            if course_title:
+                context_parts.append(f"Course: {course_title}")
+            if active_concept:
+                context_parts.append(f"Teaching concept: {active_concept}")
+            
+            context_str = " | ".join(context_parts) if context_parts else "TeachBack session"
+
+            system_message = f"""You are an AI teaching assistant helping a student practice the Feynman Technique.
+
+Context: {context_str}
+
+Your role is to:
+- Provide feedback on student explanations of concepts
+- Help students improve their teaching and explanation skills
+- Ask probing questions to deepen understanding
+- Identify gaps in explanations and suggest improvements
+- Encourage clear, simple explanations that anyone could understand
+- Guide students toward mastery through teaching practice
+
+When a student submits an explanation:
+- Highlight what they explained well
+- Identify areas that need clarification or improvement
+- Ask follow-up questions to test deeper understanding
+- Suggest ways to make explanations clearer or more complete
+- Encourage them to think about how they would teach it to different audiences
+
+Be supportive but constructively critical. The goal is to help them truly master concepts by teaching them effectively."""
+
+            # Build message history (without system message in the messages array)
+            messages = []
+            
+            # Add conversation history
+            if message_history:
+                for msg in message_history[-10:]:  # Keep last 10 messages for context
+                    if msg.get('role') in ['user', 'assistant']:
+                        messages.append({
+                            "role": msg['role'],
+                            "content": msg['content']
+                        })
+            
+            # Add current message
+            messages.append({"role": "user", "content": message})
+
+            # Stream response from Anthropic
+            with self.client.messages.stream(
+                model=self.models['research'],
+                max_tokens=1200,
                 temperature=0.7,
                 system=system_message,
                 messages=messages

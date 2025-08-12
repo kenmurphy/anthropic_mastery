@@ -11,7 +11,7 @@ class CourseConcept(EmbeddedDocument):
     )
     status = StringField(
         required=True, 
-        choices=['not_started', 'reviewing', 'reviewed', 'not_interested', 'already_know'], 
+        choices=['not_started', 'reviewing'], 
         default='not_started'
     )
     type = StringField(
@@ -99,8 +99,9 @@ class Course(Document):
         """Calculate learning progress percentage"""
         if not self.concepts:
             return 0
-        completed = len([c for c in self.concepts if c.status in ['reviewed', 'already_know']])
-        return round((completed / len(self.concepts)) * 100)
+        # With simplified status model, progress is based on concepts being reviewed
+        reviewing = len([c for c in self.concepts if c.status == 'reviewing'])
+        return round((reviewing / len(self.concepts)) * 100)
     
     def get_concept_by_title(self, title: str):
         """Get a specific concept by title"""
@@ -121,11 +122,11 @@ class Course(Document):
     def start_review(self, selected_concept_titles: list):
         """Start review process by updating concept statuses and course stage"""
         # Update selected concepts to 'reviewing' status
+        # Leave unselected concepts as 'not_started'
         for concept in self.concepts:
             if concept.title in selected_concept_titles:
                 concept.status = 'reviewing'
-            elif concept.status == 'not_started':
-                concept.status = 'not_interested'
+            # Unselected concepts remain 'not_started' - no change needed
         
         # Update course stage to 'absorb'
         self.current_stage = 'absorb'

@@ -1,14 +1,6 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import MarkdownRenderer from './MarkdownRenderer';
-
-interface CourseConcept {
-  title: string;
-  difficulty_level: 'beginner' | 'medium' | 'advanced';
-  status: 'not_started' | 'reviewing' | 'reviewed' | 'not_interested' | 'already_know';
-  type: 'original' | 'related';
-  summary?: string;
-  summary_generated_at?: string;
-}
+import type { CourseConcept } from '../types/course';
 
 interface ConceptSummary {
   title: string;
@@ -23,13 +15,10 @@ interface StudyContentProps {
   concepts: CourseConcept[];
   courseId: string;
   onActiveConceptChange: (conceptTitle: string) => void;
-  scrollToConcept?: string;
 }
 
-function StudyContent({ concepts, courseId, onActiveConceptChange, scrollToConcept }: StudyContentProps) {
+function StudyContent({ concepts, courseId, onActiveConceptChange }: StudyContentProps) {
   const [conceptSummaries, setConceptSummaries] = useState<Map<string, ConceptSummary>>(new Map());
-  const conceptRefs = useRef<Map<string, HTMLDivElement>>(new Map());
-  const observerRef = useRef<IntersectionObserver | null>(null);
 
   // Initialize concept summaries with cached data, preserving existing expansion states
   useEffect(() => {
@@ -50,52 +39,6 @@ function StudyContent({ concepts, courseId, onActiveConceptChange, scrollToConce
     });
   }, [concepts]);
 
-  // Set up intersection observer for tracking active concept
-  useEffect(() => {
-    if (observerRef.current) {
-      observerRef.current.disconnect();
-    }
-
-    observerRef.current = new IntersectionObserver(
-      (entries) => {
-        entries.forEach(entry => {
-          if (entry.isIntersecting && entry.intersectionRatio > 0.1) {
-            const conceptTitle = entry.target.getAttribute('data-concept-title');
-            if (conceptTitle) {
-              onActiveConceptChange(conceptTitle);
-            }
-          }
-        });
-      },
-      {
-        threshold: [0.1],
-        rootMargin: '0px 0px -80% 0px'
-      }
-    );
-
-    // Observe all concept elements
-    conceptRefs.current.forEach((element) => {
-      if (observerRef.current) {
-        observerRef.current.observe(element);
-      }
-    });
-
-    return () => {
-      if (observerRef.current) {
-        observerRef.current.disconnect();
-      }
-    };
-  }, [concepts, onActiveConceptChange]);
-
-  // Handle scroll to concept
-  useEffect(() => {
-    if (scrollToConcept) {
-      const element = conceptRefs.current.get(scrollToConcept);
-      if (element) {
-        element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      }
-    }
-  }, [scrollToConcept]);
 
   const toggleSummaryExpansion = (conceptTitle: string) => {
     setConceptSummaries(prev => {
@@ -244,6 +187,8 @@ function StudyContent({ concepts, courseId, onActiveConceptChange, scrollToConce
   };
 
   const handleChevronClick = async (conceptTitle: string) => {
+    onActiveConceptChange(conceptTitle);
+
     const summary = conceptSummaries.get(conceptTitle);
     
     // If no summary exists, expand immediately and show loading state
@@ -271,7 +216,7 @@ function StudyContent({ concepts, courseId, onActiveConceptChange, scrollToConce
   };
 
   return (
-    <div className="flex-1 overflow-y-auto p-3 space-y-3">
+    <div className="flex-1 overflow-y-auto space-y-3">
       {concepts.map((concept, index) => {
         const summary = conceptSummaries.get(concept.title);
         const hasContent = summary?.summary || summary?.isLoading;
@@ -280,12 +225,6 @@ function StudyContent({ concepts, courseId, onActiveConceptChange, scrollToConce
         return (
           <div
             key={index}
-            ref={(el) => {
-              if (el) {
-                conceptRefs.current.set(concept.title, el);
-              }
-            }}
-            data-concept-title={concept.title}
             className="bg-white rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-shadow"
           >
             {/* Compact concept card header */}

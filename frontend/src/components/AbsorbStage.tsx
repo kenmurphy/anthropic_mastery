@@ -1,14 +1,7 @@
-import React, { useState, useEffect, useRef } from 'react';
-import ConceptNavigation from './ConceptNavigation';
+import { useState, useEffect } from 'react';
 import StudyContent from './StudyContent';
 import StudyChat from './StudyChat';
-
-interface CourseConcept {
-  title: string;
-  difficulty_level: 'beginner' | 'medium' | 'advanced';
-  status: 'not_started' | 'reviewing' | 'reviewed' | 'not_interested' | 'already_know';
-  type: 'original' | 'related';
-}
+import type { CourseConcept } from '../types/course';
 
 interface AbsorbStageProps {
   concepts: CourseConcept[];
@@ -18,8 +11,6 @@ interface AbsorbStageProps {
 
 function AbsorbStage({ concepts, courseId, courseTitle }: AbsorbStageProps) {
   const [activeConcept, setActiveConcept] = useState<string | null>(null);
-  const [scrollToConcept, setScrollToConcept] = useState<string | undefined>(undefined);
-  const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Filter concepts to only show those chosen for review (status: 'reviewing')
   const reviewingConcepts = concepts.filter(concept => concept.status === 'reviewing');
@@ -30,31 +21,6 @@ function AbsorbStage({ concepts, courseId, courseTitle }: AbsorbStageProps) {
       setActiveConcept(reviewingConcepts[0].title);
     }
   }, [reviewingConcepts, activeConcept]);
-
-  // Cleanup timeout on unmount
-  useEffect(() => {
-    return () => {
-      if (scrollTimeoutRef.current) {
-        clearTimeout(scrollTimeoutRef.current);
-      }
-    };
-  }, []);
-
-  const handleConceptClick = (conceptTitle: string) => {
-    // Clear any existing scroll timeout to prevent race conditions
-    if (scrollTimeoutRef.current) {
-      clearTimeout(scrollTimeoutRef.current);
-    }
-    
-    setActiveConcept(conceptTitle);
-    setScrollToConcept(conceptTitle);
-    
-    // Clear scroll trigger after scroll completes
-    scrollTimeoutRef.current = setTimeout(() => {
-      setScrollToConcept(undefined);
-      scrollTimeoutRef.current = null;
-    }, 500);
-  };
 
   const handleActiveConceptChange = (conceptTitle: string) => {
     setActiveConcept(conceptTitle);
@@ -77,32 +43,26 @@ function AbsorbStage({ concepts, courseId, courseTitle }: AbsorbStageProps) {
   }
 
   return (
-    <div className="flex h-full gap-3 p-2" style={{ backgroundColor: "#FAF9F5" }}>
-      {/* Column 1: Concept Navigation - Sticky */}
-      <div className="w-60 sticky top-2 self-start">
-        <ConceptNavigation
-          concepts={reviewingConcepts}
-          activeConcept={activeConcept}
-          onConceptClick={handleConceptClick}
-        />
-      </div>
+    <div className="h-full p-6 w-[90%] mx-auto" style={{ backgroundColor: "#FAF9F5" }}>
+      <div className="h-full">
+        <div className="flex h-full gap-3">
+          {/* Study Content */}
+          <div className="flex-1 overflow-hidden">
+            <StudyContent
+              concepts={reviewingConcepts}
+              courseId={courseId || ''}
+              onActiveConceptChange={handleActiveConceptChange}
+            />
+          </div>
 
-      {/* Column 2: Study Content */}
-      <div className="flex-1 overflow-hidden">
-        <StudyContent
-          concepts={reviewingConcepts}
-          courseId={courseId || ''}
-          onActiveConceptChange={handleActiveConceptChange}
-          scrollToConcept={scrollToConcept}
-        />
-      </div>
-
-      {/* Column 3: Study Chat - Sticky */}
-      <div className="w-90 bg-white rounded-lg border border-gray-200 shadow-sm sticky top-2 self-start">
-        <StudyChat
-          courseTitle={courseTitle}
-          activeConcept={activeConcept || undefined}
-        />
+          {/* Study Chat - Sticky */}
+          <div className="w-90 bg-white rounded-lg border border-gray-200 shadow-sm sticky top-2 self-start">
+            <StudyChat
+              courseTitle={courseTitle}
+              activeConcept={activeConcept || undefined}
+            />
+          </div>
+        </div>
       </div>
     </div>
   );

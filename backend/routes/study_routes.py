@@ -104,6 +104,106 @@ def generate_concept_summary():
             'error': str(e)
         }), 500
 
+@study_bp.route('/teachback/submit-explanation', methods=['POST'])
+def submit_explanation():
+    """Submit user explanation for TeachBack feedback"""
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({
+                'success': False,
+                'error': 'Request body is required'
+            }), 400
+        
+        concept_title = data.get('concept_title')
+        teaching_question = data.get('teaching_question')
+        user_explanation = data.get('user_explanation')
+        course_id = data.get('course_id')
+        
+        if not concept_title:
+            return jsonify({
+                'success': False,
+                'error': 'concept_title is required'
+            }), 400
+        
+        if not user_explanation:
+            return jsonify({
+                'success': False,
+                'error': 'user_explanation is required'
+            }), 400
+        
+        # For now, just return success - the feedback will be handled by the TeachBack chat
+        # In a full implementation, this would analyze the explanation and send feedback to the chat
+        return jsonify({
+            'success': True,
+            'message': 'Explanation submitted successfully'
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@study_bp.route('/teachback/chat', methods=['POST'])
+def teachback_chat():
+    """Handle TeachBack chat with streaming responses"""
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({
+                'success': False,
+                'error': 'Request body is required'
+            }), 400
+        
+        message = data.get('message')
+        course_title = data.get('course_title', '')
+        active_concept = data.get('active_concept', '')
+        message_history = data.get('message_history', [])
+        session_type = data.get('session_type', 'teachback')
+        
+        if not message:
+            return jsonify({
+                'success': False,
+                'error': 'message is required'
+            }), 400
+        
+        # Stream TeachBack chat response
+        anthropic_service = AnthropicService()
+        
+        def generate():
+            try:
+                for chunk in anthropic_service.stream_teachback_chat_response(
+                    message=message,
+                    course_title=course_title,
+                    active_concept=active_concept,
+                    message_history=message_history
+                ):
+                    yield f"data: {json.dumps(chunk)}\n\n"
+            except Exception as e:
+                error_chunk = {
+                    'content': '',
+                    'is_complete': True,
+                    'error': str(e)
+                }
+                yield f"data: {json.dumps(error_chunk)}\n\n"
+        
+        return Response(
+            generate(),
+            mimetype='text/plain',
+            headers={
+                'Cache-Control': 'no-cache',
+                'Connection': 'keep-alive',
+                'Access-Control-Allow-Origin': '*'
+            }
+        )
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
 @study_bp.route('/study/chat', methods=['POST'])
 def study_chat():
     """Handle study chat with streaming responses"""

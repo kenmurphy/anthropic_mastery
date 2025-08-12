@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import { useState, useEffect } from 'react'
 
 interface StudyGuide {
   id: string;
@@ -103,20 +103,9 @@ function ClaudeMastery({ onViewCourse }: ClaudeMasteryProps) {
         return;
       }
 
-      // Create course from cluster
-      const response = await fetch(`http://localhost:5000/api/study-guides/${studyGuide.id}/start`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type: studyGuide.type })
-      });
-
-      const data = await response.json();
-      if (data.success) {
-        // Navigate to the newly created course
-        onViewCourse(data.course.id);
-      } else {
-        setError(data.error || 'Failed to start study guide');
-      }
+      // For clusters, navigate immediately with the cluster ID
+      // The CourseView component will handle the course creation in the background
+      onViewCourse(studyGuide.id);
     } catch (err) {
       setError('Failed to start study guide');
       console.error('Error starting study guide:', err);

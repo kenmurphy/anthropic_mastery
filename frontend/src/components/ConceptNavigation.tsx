@@ -1,11 +1,4 @@
-import React from 'react';
-
-interface CourseConcept {
-  title: string;
-  difficulty_level: 'beginner' | 'medium' | 'advanced';
-  status: 'not_started' | 'reviewing' | 'reviewed' | 'not_interested' | 'already_know';
-  type: 'original' | 'related';
-}
+import type { CourseConcept } from '../types/course';
 
 interface ConceptNavigationProps {
   concepts: CourseConcept[];

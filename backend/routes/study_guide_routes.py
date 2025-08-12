@@ -123,6 +123,57 @@ def update_concept_status(course_id, concept_title):
             'error': str(e)
         }), 500
 
+@study_guide_bp.route('/concepts/status', methods=['PUT'])
+def update_concept_status_simple():
+    """Update the status of a specific concept in a course (simplified endpoint)"""
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({
+                'success': False,
+                'error': 'Request body is required'
+            }), 400
+        
+        concept_title = data.get('concept_title')
+        course_id = data.get('course_id')
+        new_status = data.get('status')
+        
+        if not concept_title:
+            return jsonify({
+                'success': False,
+                'error': 'concept_title is required'
+            }), 400
+        
+        if not course_id:
+            return jsonify({
+                'success': False,
+                'error': 'course_id is required'
+            }), 400
+        
+        if not new_status:
+            return jsonify({
+                'success': False,
+                'error': 'status is required'
+            }), 400
+        
+        course = StudyGuideService.update_concept_status(course_id, concept_title, new_status)
+        return jsonify({
+            'success': True,
+            'course': course.to_dict(),
+            'message': f'Concept "{concept_title}" status updated to "{new_status}"'
+        })
+        
+    except ValueError as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 400
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
 @study_guide_bp.route('/courses', methods=['GET'])
 def get_all_courses():
     """Get all courses"""

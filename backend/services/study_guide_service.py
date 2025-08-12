@@ -7,14 +7,18 @@ class StudyGuideService:
     
     @staticmethod
     def _deduplicate_concepts_by_title(concepts):
-        """Remove duplicate concepts by title (case-insensitive), keeping first occurrence"""
+        """Remove duplicate concepts by title (case-insensitive), keeping first occurrence
+        
+        IMPORTANT: This preserves the full concept object (including status, summary, etc.)
+        from the first occurrence, which is critical for maintaining user selections.
+        """
         seen_titles = set()
         deduplicated = []
         for concept in concepts:
             title_lower = concept.title.lower()
             if title_lower not in seen_titles:
                 seen_titles.add(title_lower)
-                deduplicated.append(concept)
+                deduplicated.append(concept)  # Preserves full concept object
         return deduplicated
     
     @staticmethod
@@ -99,42 +103,14 @@ class StudyGuideService:
                 # Deduplicate original concepts (in case refinement has duplicates)
                 original_concepts = StudyGuideService._deduplicate_concepts_by_title(original_concepts)
                 
-                # Step 2: Generate related topics using refined original topics
-                try:
-                    original_titles = [concept.title for concept in original_concepts]
-                    related_concept_data = anthropic_service.generate_related_topics(
-                        existing_concepts=original_titles,
-                        course_title=cluster.label,
-                        course_description=cluster.description
-                    )
-                    
-                    # Create related concepts
-                    related_concepts = [
-                        CourseConcept(
-                            title=concept_data['title'],
-                            difficulty_level=concept_data['difficulty_level'],
-                            status='not_started',
-                            type='related'
-                        ) for concept_data in related_concept_data
-                    ]
-                    
-                    print(f"Generated {len(related_concepts)} related topics for course: {cluster.label}")
-                    
-                except Exception as e:
-                    print(f"Error generating related topics: {e}")
-                    related_concepts = []
-                
-                # Combine concepts and apply final deduplication (original concepts come first, so they take priority)
-                all_concepts = original_concepts + related_concepts
-                deduplicated_concepts = StudyGuideService._deduplicate_concepts_by_title(all_concepts)
-                
-                # Create new course with deduplicated concepts
+                # Create new course with only original concepts
+                # Related topics will be generated asynchronously by the frontend
                 course = Course(
                     label=cluster.label,
                     description=cluster.description,
                     conversation_ids=cluster.conversation_ids,
                     source_cluster_id=item_id,
-                    concepts=deduplicated_concepts
+                    concepts=original_concepts
                 )
                 course.save()
                 return course
@@ -182,18 +158,18 @@ class StudyGuideService:
                 course_description=course.description
             )
             
-            # Create fresh related concepts
-            fresh_related_concepts = [
-                CourseConcept(
-                    title=concept_data['title'],
-                    difficulty_level=concept_data['difficulty_level'],
-                    status='not_started',
-                    type='related'
-                ) for concept_data in fresh_related_data
-            ]
+            # Create fresh related concepts - explicitly set all required fields
+            fresh_related_concepts = []
+            for concept_data in fresh_related_data:
+                fresh_related_concepts.append(CourseConcept(
+                    title=str(concept_data.get('title', 'Unknown Topic'))[:200],
+                    difficulty_level=str(concept_data.get('difficulty_level', 'medium')),
+                    status='not_started',  # Explicitly set status
+                    type='related'  # Explicitly set type
+                ))
             
             # Replace existing related topics with fresh ones
-            # Keep original topics, replace related topics
+            # Keep original topics WITH THEIR CURRENT STATUS, replace related topics
             original_concepts = [concept for concept in course.concepts if concept.type == 'original']
             all_concepts = original_concepts + fresh_related_concepts
             
@@ -220,7 +196,7 @@ class StudyGuideService:
                 raise ValueError("Course not found")
             
             # Validate status
-            valid_statuses = ['not_started', 'reviewed', 'not_interested', 'already_know']
+            valid_statuses = ['not_started', 'reviewing']
             if new_status not in valid_statuses:
                 raise ValueError(f"Invalid status. Must be one of: {valid_statuses}")
             
