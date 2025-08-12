@@ -22,11 +22,11 @@
     }
   ],
   "env": {
-    "VITE_API_BASE_URL": "@api_base_url"
+    "VITE_API_BASE_URL": "https://anthropic-mastery.onrender.com"
   },
   "build": {
     "env": {
-      "VITE_API_BASE_URL": "@api_base_url"
+      "VITE_API_BASE_URL": "https://anthropic-mastery.onrender.com"
     }
   }
 }
