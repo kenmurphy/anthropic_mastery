@@ -18,7 +18,7 @@ class Config:
     
     # Application Configuration
     APP_HOST = os.environ.get('APP_HOST', '0.0.0.0')
-    APP_PORT = int(os.environ.get('APP_PORT', 5000))
+    APP_PORT = int(os.environ.get('APP_PORT', 10000))
     DEBUG = os.environ.get('FLASK_DEBUG', 'True').lower() == 'true'
     
     # AI Services Configuration

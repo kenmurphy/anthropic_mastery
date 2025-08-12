@@ -1,5 +1,6 @@
 import React, { useState, useRef } from 'react'
 import MarkdownRenderer from './MarkdownRenderer'
+import { buildApiUrl } from '../config/api'
 
 interface Message {
   id: string
@@ -52,7 +53,7 @@ function StudyAssistant({ courseTitle, activeConcept }: StudyAssistantProps) {
         session_type: 'study'
       }
 
-      const response = await fetch('http://localhost:5000/api/study/chat', {
+      const response = await fetch(buildApiUrl('/api/study/chat'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

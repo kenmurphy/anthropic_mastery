@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import MarkdownRenderer from './MarkdownRenderer';
+import { buildApiUrl } from '../config/api';
 import type { CourseConcept } from '../types/course';
 
 interface ConceptSummary {
@@ -62,7 +63,7 @@ function StudyContent({ concepts, courseId, onActiveConceptChange }: StudyConten
     });
 
     try {
-      const response = await fetch('http://localhost:5000/api/concepts/summary', {
+      const response = await fetch(buildApiUrl('/api/concepts/summary'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

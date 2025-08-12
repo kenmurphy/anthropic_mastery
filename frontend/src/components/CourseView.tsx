@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react'
 import ConceptSelector from './ConceptSelector'
 import AbsorbStage from './AbsorbStage'
 import TeachBackStage from './TeachBackStage'
+import { buildApiUrl } from '../config/api'
 import type { CourseConcept } from '../types/course'
 
 interface Course {
@@ -62,7 +63,7 @@ function CourseView({ courseId, onBack }: CourseViewProps) {
       setError(null);
       
       // First, try to fetch as a course
-      const courseResponse = await fetch(`http://localhost:5000/api/courses/${courseId}`);
+      const courseResponse = await fetch(buildApiUrl(`/api/courses/${courseId}`));
       
       if (courseResponse.ok) {
         // It's an existing course
@@ -76,7 +77,7 @@ function CourseView({ courseId, onBack }: CourseViewProps) {
       setLoadingOriginalTopics(true);
       setOriginalTopicsError(null);
       
-      const createResponse = await fetch(`http://localhost:5000/api/study-guides/${courseId}/start`, {
+      const createResponse = await fetch(buildApiUrl(`/api/study-guides/${courseId}/start`), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ type: 'cluster' })
@@ -108,7 +109,7 @@ function CourseView({ courseId, onBack }: CourseViewProps) {
       setLoadingRelatedTopics(true);
       setRelatedTopicsError(null);
       
-      const response = await fetch(`http://localhost:5000/api/courses/${course.id}/related-topics`, {
+      const response = await fetch(buildApiUrl(`/api/courses/${course.id}/related-topics`), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -148,7 +149,7 @@ function CourseView({ courseId, onBack }: CourseViewProps) {
       setCurrentStage(newStage);
 
       // Update course stage in backend
-      const response = await fetch(`http://localhost:5000/api/courses/${course.id}/stage`, {
+      const response = await fetch(buildApiUrl(`/api/courses/${course.id}/stage`), {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -195,7 +196,7 @@ function CourseView({ courseId, onBack }: CourseViewProps) {
       setStartingReview(true);
       
       // First, update the concept selection (allows deselection)
-      const updateResponse = await fetch(`http://localhost:5000/api/courses/${courseId}/update-selection`, {
+      const updateResponse = await fetch(buildApiUrl(`/api/courses/${courseId}/update-selection`), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -211,7 +212,7 @@ function CourseView({ courseId, onBack }: CourseViewProps) {
         
         // If there are selected concepts, start the review process
         if (selectedConcepts.size > 0) {
-          const reviewResponse = await fetch(`http://localhost:5000/api/courses/${courseId}/start-review`, {
+          const reviewResponse = await fetch(buildApiUrl(`/api/courses/${courseId}/start-review`), {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { buildApiUrl } from '../config/api'
 
 interface StudyGuide {
   id: string;
@@ -51,8 +52,8 @@ function ClaudeMastery({ onViewCourse }: ClaudeMasteryProps) {
       
       // Fetch study guides and status in parallel
       const [studyGuidesResponse, statusResponse] = await Promise.all([
-        fetch('http://localhost:5000/api/study-guides'),
-        fetch('http://localhost:5000/api/clustering/status')
+        fetch(buildApiUrl('/api/study-guides')),
+        fetch(buildApiUrl('/api/clustering/status'))
       ]);
 
       if (studyGuidesResponse.ok) {
@@ -77,7 +78,7 @@ function ClaudeMastery({ onViewCourse }: ClaudeMasteryProps) {
   const triggerClustering = async () => {
     try {
       setLoading(true);
-      const response = await fetch('http://localhost:5000/api/clustering/run', {
+      const response = await fetch(buildApiUrl('/api/clustering/run'), {
         method: 'POST'
       });
 

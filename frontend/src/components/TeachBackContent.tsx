@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { buildApiUrl } from '../config/api';
 import type { CourseConcept } from '../types/course';
 
 interface QuestionState {
@@ -109,7 +110,7 @@ function TeachBackContent({
     try {
       const selectedQuestion = concept.teaching_questions?.[conceptState.selectedQuestionIndex];
       
-      const response = await fetch('http://localhost:5000/api/teachback/submit-explanation', {
+      const response = await fetch(buildApiUrl('/api/teachback/submit-explanation'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

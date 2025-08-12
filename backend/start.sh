@@ -39,7 +39,7 @@ pip install -r requirements.txt
 
 # Start the Flask application
 echo "🌐 Starting Flask application..."
-echo "   Access the API at: http://localhost:5000"
+echo "   Access the API at: http://localhost:10000"
 echo "   Press Ctrl+C to stop the server"
 echo ""
 
