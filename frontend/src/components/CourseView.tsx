@@ -33,7 +33,6 @@ function CourseView({ courseId, onBack }: CourseViewProps) {
   const [relatedTopicsError, setRelatedTopicsError] = useState<string | null>(null);
   const [loadingOriginalTopics, setLoadingOriginalTopics] = useState(false);
   const [originalTopicsError, setOriginalTopicsError] = useState<string | null>(null);
-  const [isCluster, setIsCluster] = useState(false);
 
   useEffect(() => {
     fetchCourseOrCreateFromCluster();
@@ -69,13 +68,11 @@ function CourseView({ courseId, onBack }: CourseViewProps) {
         // It's an existing course
         const data = await courseResponse.json();
         setCourse(data.course);
-        setIsCluster(false);
         return;
       }
       
       // If course fetch failed, it might be a cluster ID
       // Try to create a course from the cluster
-      setIsCluster(true);
       setLoadingOriginalTopics(true);
       setOriginalTopicsError(null);
       
@@ -143,6 +140,42 @@ function CourseView({ courseId, onBack }: CourseViewProps) {
     }
   };
 
+  const handleStageChange = async (newStage: 'explore' | 'absorb' | 'teach_back') => {
+    if (!course) return;
+
+    try {
+      // Update local state immediately for responsive UI
+      setCurrentStage(newStage);
+
+      // Update course stage in backend
+      const response = await fetch(`http://localhost:5000/api/courses/${course.id}/stage`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          stage: newStage
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setCourse(data.course);
+        setError(null);
+      } else {
+        const errorData = await response.json();
+        setError(errorData.error || 'Failed to update course stage');
+        // Revert local state on error
+        setCurrentStage(course.current_stage);
+      }
+    } catch (err) {
+      setError('Failed to update course stage. Please try again.');
+      // Revert local state on error
+      setCurrentStage(course.current_stage);
+      console.error('Error updating course stage:', err);
+    }
+  };
+
   const toggleConceptSelection = (conceptTitle: string) => {
     setSelectedConcepts(prev => {
       const newSet = new Set(prev);
@@ -156,11 +189,13 @@ function CourseView({ courseId, onBack }: CourseViewProps) {
   };
 
   const handleStartReview = async () => {
-    if (!course || selectedConcepts.size === 0) return;
+    if (!course) return;
 
     try {
       setStartingReview(true);
-      const response = await fetch(`http://localhost:5000/api/courses/${courseId}/start-review`, {
+      
+      // First, update the concept selection (allows deselection)
+      const updateResponse = await fetch(`http://localhost:5000/api/courses/${courseId}/update-selection`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -170,14 +205,37 @@ function CourseView({ courseId, onBack }: CourseViewProps) {
         }),
       });
 
-      if (response.ok) {
-        const data = await response.json();
-        setCourse(data.course);
+      if (updateResponse.ok) {
+        const updateData = await updateResponse.json();
+        setCourse(updateData.course);
+        
+        // If there are selected concepts, start the review process
+        if (selectedConcepts.size > 0) {
+          const reviewResponse = await fetch(`http://localhost:5000/api/courses/${courseId}/start-review`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              selected_concept_titles: Array.from(selectedConcepts)
+            }),
+          });
+
+          if (reviewResponse.ok) {
+            const reviewData = await reviewResponse.json();
+            setCourse(reviewData.course);
+          } else {
+            const errorData = await reviewResponse.json();
+            setError(errorData.error || 'Failed to start review');
+            return;
+          }
+        }
+        
         setSelectedConcepts(new Set());
         setError(null);
       } else {
-        const errorData = await response.json();
-        setError(errorData.error || 'Failed to start review');
+        const errorData = await updateResponse.json();
+        setError(errorData.error || 'Failed to update selection');
       }
     } catch (err) {
       setError('Failed to start review. Please try again.');
@@ -188,7 +246,7 @@ function CourseView({ courseId, onBack }: CourseViewProps) {
   };
 
   const isInExploreStage = currentStage === 'explore';
-  const hasSelectableConcepts = course?.concepts.some(c => c.status === 'not_started') || false;
+  const hasSelectableConcepts = (course?.concepts?.length ?? 0) > 0;
   const canSelectConcepts = isInExploreStage && hasSelectableConcepts;
 
   if (loading) {
@@ -281,7 +339,7 @@ function CourseView({ courseId, onBack }: CourseViewProps) {
                         <div className="flex items-center flex-1">
                           <div className="flex flex-col items-center w-full">
                             <button
-                              onClick={() => setCurrentStage(stage as 'explore' | 'absorb' | 'teach_back')}
+                              onClick={() => handleStageChange(stage as 'explore' | 'absorb' | 'teach_back')}
                               className={`w-8 h-8 rounded-full flex items-center justify-center border transition-all duration-300 hover:scale-105 ${
                                 isCurrentStage
                                   ? 'bg-orange-500 border-orange-500 text-white shadow-md'
@@ -293,7 +351,7 @@ function CourseView({ courseId, onBack }: CourseViewProps) {
                               </span>
                             </button>
                             <button
-                              onClick={() => setCurrentStage(stage as 'explore' | 'absorb' | 'teach_back')}
+                              onClick={() => handleStageChange(stage as 'explore' | 'absorb' | 'teach_back')}
                               className={`mt-2 text-xs font-medium transition-colors duration-200 ${
                                 isCurrentStage
                                   ? 'text-orange-600'

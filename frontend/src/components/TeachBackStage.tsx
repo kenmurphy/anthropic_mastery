@@ -1,5 +1,5 @@
 import TeachBackContent from './TeachBackContent';
-import TeachBackAssistant from './TeachBackAssistant';
+import StudyAssistant from './StudyAssistant';
 import type { CourseConcept } from '../types/course';
 
 interface TeachBackStageProps {
@@ -9,19 +9,19 @@ interface TeachBackStageProps {
 }
 
 function TeachBackStage({ concepts, courseId, courseTitle }: TeachBackStageProps) {
-  // Filter concepts to only show those ready for teaching back (status: 'reviewing')
-  const reviewingConcepts = concepts.filter(concept => concept.status === 'reviewing');
+  // Show only concepts marked for reviewing in the Teach Back stage
+  const availableConcepts = concepts.filter(concept => concept.status === 'reviewing');
 
-  if (reviewingConcepts.length === 0) {
+  if (availableConcepts.length === 0) {
     return (
       <div className="flex-1 flex items-center justify-center">
         <div className="text-center py-12">
           <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
             <span className="text-3xl">🎓</span>
           </div>
-          <h3 className="text-xl font-semibold text-gray-900 mb-2">No Concepts Ready for Teaching Back</h3>
+          <h3 className="text-xl font-semibold text-gray-900 mb-2">No Concepts Ready for Teaching</h3>
           <p className="text-gray-600 max-w-md mx-auto">
-            Start reviewing some concepts in the Absorb stage first to unlock the TeachBack experience.
+            No concepts are marked for reviewing yet. Select concepts from the course overview to start practicing.
           </p>
         </div>
       </div>
@@ -33,14 +33,14 @@ function TeachBackStage({ concepts, courseId, courseTitle }: TeachBackStageProps
       {/* Column 1: TeachBack Content */}
       <div className="flex-1 overflow-hidden">
         <TeachBackContent
-          concepts={reviewingConcepts}
+          concepts={availableConcepts}
           courseId={courseId || ''}
         />
       </div>
 
-      {/* Column 2: TeachBack Assistant - Sticky */}
+      {/* Column 2: Study Assistant - Sticky */}
       <div className="w-90 bg-white rounded-lg border border-gray-200 shadow-sm sticky top-2 self-start">
-        <TeachBackAssistant
+        <StudyAssistant
           courseTitle={courseTitle}
         />
       </div>

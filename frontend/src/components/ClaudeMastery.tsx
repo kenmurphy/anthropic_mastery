@@ -211,33 +211,13 @@ function ClaudeMastery({ onViewCourse }: ClaudeMasteryProps) {
                   const colorClass = colors[index % colors.length];
                   
                   return (
-                    <div key={guide.id} className="bg-white rounded-lg border border-gray-200 p-6 hover:shadow-md transition-shadow">
+                    <div key={guide.id} className="bg-white rounded-lg border border-gray-200 p-6 hover:shadow-md transition-shadow flex flex-col h-full">
                       <div className="flex items-center gap-3 mb-3">
                         <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${colorClass}`}>
-                          {guide.type === 'course' ? (
-                            <span className="text-lg">📚</span>
-                          ) : (
-                            <span className="text-lg font-bold">{index + 1}</span>
-                          )}
+                          <span className="text-lg font-bold">{index + 1}</span>
                         </div>
                         <h3 className="font-semibold text-gray-900">{guide.label}</h3>
                       </div>
-                      
-                      {/* Progress indicator for courses */}
-                      {guide.type === 'course' && guide.progress !== undefined && (
-                        <div className="mb-3">
-                          <div className="flex justify-between text-xs text-gray-500 mb-1">
-                            <span>Progress</span>
-                            <span>{guide.progress}%</span>
-                          </div>
-                          <div className="w-full bg-gray-200 rounded-full h-2">
-                            <div 
-                              className="bg-blue-600 h-2 rounded-full" 
-                              style={{ width: `${guide.progress}%` }}
-                            ></div>
-                          </div>
-                        </div>
-                      )}
                       
                       <p className="text-gray-600 text-sm mb-4">
                         {guide.description}
@@ -259,13 +239,16 @@ function ClaudeMastery({ onViewCourse }: ClaudeMasteryProps) {
                         </div>
                       </div>
                       
-                      <div className="flex items-center justify-between">
+                      <div className="mb-4 flex-grow">
                         <span className="text-sm text-gray-500">
                           {guide.conversation_count} conversation{guide.conversation_count !== 1 ? 's' : ''}
                         </span>
+                      </div>
+                      
+                      <div className="w-full mt-auto">
                         <button 
                           onClick={() => handleStartStudy(guide)}
-                          className="text-blue-600 text-sm font-medium hover:text-blue-700"
+                          className="w-full text-right text-blue-600 text-sm font-medium hover:text-blue-700"
                         >
                           {guide.type === 'course' ? 'Continue Course →' : 'Study This Topic →'}
                         </button>

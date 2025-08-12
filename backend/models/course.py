@@ -1,4 +1,4 @@
-from mongoengine import Document, StringField, ListField, EmbeddedDocument, EmbeddedDocumentField, DateTimeField
+from mongoengine import Document, StringField, ListField, EmbeddedDocument, EmbeddedDocumentField, DateTimeField, BooleanField
 from datetime import datetime
 
 class CourseConcept(EmbeddedDocument):
@@ -21,6 +21,12 @@ class CourseConcept(EmbeddedDocument):
     )
     summary = StringField()  # Cached AI-generated summary
     summary_generated_at = DateTimeField()  # When summary was generated
+    teaching_questions = ListField(StringField())  # AI-generated teaching questions
+    teaching_questions_generated_at = DateTimeField()  # When questions were generated
+    
+    # Streaming control flags
+    is_streaming_summary = BooleanField(default=False)
+    is_streaming_questions = BooleanField(default=False)
     
     def to_dict(self):
         """Convert concept to dictionary"""
@@ -40,7 +46,11 @@ class CourseConcept(EmbeddedDocument):
             'status': self.status,
             'type': self.type,
             'summary': self.summary,
-            'summary_generated_at': format_datetime(self.summary_generated_at)
+            'summary_generated_at': format_datetime(self.summary_generated_at),
+            'teaching_questions': getattr(self, 'teaching_questions', None),
+            'teaching_questions_generated_at': format_datetime(getattr(self, 'teaching_questions_generated_at', None)),
+            'is_streaming_summary': getattr(self, 'is_streaming_summary', False),
+            'is_streaming_questions': getattr(self, 'is_streaming_questions', False)
         }
     
     def has_summary(self):
@@ -51,6 +61,39 @@ class CourseConcept(EmbeddedDocument):
         """Set the summary and update timestamp"""
         self.summary = summary_text
         self.summary_generated_at = datetime.utcnow()
+    
+    def should_generate_summary(self):
+        """Check if summary needs generation"""
+        if getattr(self, 'is_streaming_summary', False):
+            return False
+        summary = getattr(self, 'summary', None)
+        if not summary or not str(summary).strip():
+            return True
+        # Check if summary is older than 7 days (configurable)
+        summary_date = getattr(self, 'summary_generated_at', None)
+        if summary_date and isinstance(summary_date, datetime):
+            age = datetime.utcnow() - summary_date
+            return age.days > 7
+        return True
+    
+    def should_generate_questions(self):
+        """Check if questions need generation"""
+        if getattr(self, 'is_streaming_questions', False):
+            return False
+        questions = getattr(self, 'teaching_questions', None)
+        if not questions or len(questions) == 0:
+            return True
+        # Check if questions are older than 3 days (configurable)
+        questions_date = getattr(self, 'teaching_questions_generated_at', None)
+        if questions_date and isinstance(questions_date, datetime):
+            age = datetime.utcnow() - questions_date
+            return age.days > 3
+        return True
+    
+    def set_teaching_questions(self, questions):
+        """Set the teaching questions and update timestamp"""
+        self.teaching_questions = questions
+        self.teaching_questions_generated_at = datetime.utcnow()
 
 class Course(Document):
     """Course model - created from conversation clusters for structured learning"""
@@ -119,7 +162,7 @@ class Course(Document):
             return True
         return False
     
-    def start_review(self, selected_concept_titles: list):
+    def start_review(self, selected_concept_titles: list, concept_content_service=None):
         """Start review process by updating concept statuses and course stage"""
         # Update selected concepts to 'reviewing' status
         # Leave unselected concepts as 'not_started'
@@ -133,6 +176,14 @@ class Course(Document):
         
         # Save changes
         self.save()
+        
+        # Start background content generation if service is provided
+        if concept_content_service:
+            concept_content_service.generate_concept_content_batch(
+                str(self.id), 
+                selected_concept_titles
+            )
+        
         return True
     
     def to_study_guide_dict(self):

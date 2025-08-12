@@ -1,5 +1,7 @@
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, jsonify, request, Response
 from services.study_guide_service import StudyGuideService
+from services.anthropic_service import AnthropicService
+import json
 
 study_guide_bp = Blueprint('study_guide', __name__, url_prefix='/api')
 
@@ -238,6 +240,48 @@ def start_course_review(course_id):
             'error': str(e)
         }), 500
 
+@study_guide_bp.route('/courses/<course_id>/update-selection', methods=['POST'])
+def update_concept_selection(course_id):
+    """Update concept selection - set selected concepts to 'reviewing' and unselected to 'not_started'"""
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({
+                'success': False,
+                'error': 'Request body is required'
+            }), 400
+        
+        selected_concept_titles = data.get('selected_concept_titles')
+        if selected_concept_titles is None:
+            return jsonify({
+                'success': False,
+                'error': 'selected_concept_titles is required'
+            }), 400
+        
+        if not isinstance(selected_concept_titles, list):
+            return jsonify({
+                'success': False,
+                'error': 'selected_concept_titles must be a list'
+            }), 400
+        
+        course = StudyGuideService.update_concept_selection(course_id, selected_concept_titles)
+        return jsonify({
+            'success': True,
+            'course': course.to_dict(),
+            'message': f'Updated selection: {len(selected_concept_titles)} concept(s) selected for review'
+        })
+        
+    except ValueError as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 400
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
 @study_guide_bp.route('/courses/<course_id>/related-topics', methods=['POST'])
 def generate_related_topics(course_id):
     """Generate fresh related topics for a course asynchronously"""
@@ -259,6 +303,42 @@ def generate_related_topics(course_id):
             'error': str(e)
         }), 500
 
+@study_guide_bp.route('/courses/<course_id>/stage', methods=['PUT'])
+def update_course_stage(course_id):
+    """Update the current stage of a course"""
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({
+                'success': False,
+                'error': 'Request body is required'
+            }), 400
+        
+        new_stage = data.get('stage')
+        if not new_stage:
+            return jsonify({
+                'success': False,
+                'error': 'stage is required'
+            }), 400
+        
+        course = StudyGuideService.update_course_stage(course_id, new_stage)
+        return jsonify({
+            'success': True,
+            'course': course.to_dict(),
+            'message': f'Course stage updated to "{new_stage}"'
+        })
+        
+    except ValueError as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 400
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
 @study_guide_bp.route('/courses/<course_id>', methods=['DELETE'])
 def delete_course(course_id):
     """Delete a course by ID"""
@@ -273,6 +353,99 @@ def delete_course(course_id):
             'success': False,
             'error': str(e)
         }), 404
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@study_guide_bp.route('/teachback/submit-explanation', methods=['POST'])
+def submit_explanation():
+    """Submit explanation for feedback in TeachBack stage"""
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({
+                'success': False,
+                'error': 'Request body is required'
+            }), 400
+        
+        concept_title = data.get('concept_title')
+        teaching_question = data.get('teaching_question')
+        user_explanation = data.get('user_explanation')
+        course_id = data.get('course_id')
+        
+        if not concept_title:
+            return jsonify({
+                'success': False,
+                'error': 'concept_title is required'
+            }), 400
+        
+        if not teaching_question:
+            return jsonify({
+                'success': False,
+                'error': 'teaching_question is required'
+            }), 400
+        
+        if not user_explanation:
+            return jsonify({
+                'success': False,
+                'error': 'user_explanation is required'
+            }), 400
+        
+        # Get course for context
+        course_title = ""
+        if course_id:
+            try:
+                course = StudyGuideService.get_course_by_id(course_id)
+                course_title = course.label
+            except:
+                pass  # Continue without course context if not found
+        
+        # Create feedback message for the AI
+        feedback_message = f"""I just explained the concept "{concept_title}" in response to this teaching question:
+
+**Question:** {teaching_question}
+
+**My Explanation:**
+{user_explanation}
+
+Please provide constructive feedback on my explanation. What did I do well? What could be improved? Are there any important points I missed?"""
+
+        # Stream feedback using the teachback chat response
+        def generate_feedback():
+            try:
+                anthropic_service = AnthropicService()
+                
+                for chunk in anthropic_service.stream_teachback_chat_response(
+                    message=feedback_message,
+                    course_title=course_title,
+                    active_concept=concept_title
+                ):
+                    if chunk.get('error'):
+                        yield f"data: {json.dumps({'error': chunk['error']})}\n\n"
+                        break
+                    elif chunk.get('content'):
+                        yield f"data: {json.dumps({'content': chunk['content']})}\n\n"
+                    elif chunk.get('is_complete'):
+                        yield f"data: {json.dumps({'is_complete': True})}\n\n"
+                        break
+                        
+            except Exception as e:
+                yield f"data: {json.dumps({'error': str(e)})}\n\n"
+        
+        return Response(
+            generate_feedback(),
+            mimetype='text/plain',
+            headers={
+                'Cache-Control': 'no-cache',
+                'Connection': 'keep-alive',
+                'Access-Control-Allow-Origin': '*',
+                'Access-Control-Allow-Headers': 'Content-Type',
+                'Access-Control-Allow-Methods': 'POST'
+            }
+        )
+        
     except Exception as e:
         return jsonify({
             'success': False,

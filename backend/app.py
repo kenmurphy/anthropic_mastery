@@ -4,6 +4,7 @@ from mongoengine import connect
 from config import config
 from routes import conversation_bp, clustering_bp, study_guide_bp
 from routes.study_routes import study_bp
+from routes.concept_routes import concept_bp
 import os
 import sys
 
@@ -39,6 +40,7 @@ def create_app(config_name=None):
     app.register_blueprint(clustering_bp)
     app.register_blueprint(study_guide_bp)
     app.register_blueprint(study_bp)
+    app.register_blueprint(concept_bp, url_prefix='/api')
     
     # Global error handlers
     @app.errorhandler(404)

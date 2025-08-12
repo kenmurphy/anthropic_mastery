@@ -164,7 +164,7 @@ function ConceptSelector({
                   key={`original-${index}`} 
                   concept={concept}
                   isSelectable={canSelectConcepts}
-                  isSelected={selectedConcepts.has(concept.title) || concept.status === 'reviewing'}
+                  isSelected={selectedConcepts.has(concept.title)}
                   onToggleSelect={() => onToggleConceptSelection(concept.title)}
                 />
               ))}
@@ -221,7 +221,7 @@ function ConceptSelector({
                   concept={concept}
                   isRelated={true}
                   isSelectable={canSelectConcepts}
-                  isSelected={selectedConcepts.has(concept.title) || concept.status === 'reviewing'}
+                  isSelected={selectedConcepts.has(concept.title)}
                   onToggleSelect={() => onToggleConceptSelection(concept.title)}
                 />
               ))}
@@ -238,12 +238,16 @@ function ConceptSelector({
         )}
       </div>
 
-      {/* Start Review Button */}
-      {canSelectConcepts && selectedConcepts.size > 0 && (
+      {/* Update Selection Button */}
+      {canSelectConcepts && (
         <div className="mt-6 pt-6 border-t border-gray-100">
           <div className="flex items-center justify-between">
             <div className="text-sm text-gray-600">
-              {selectedConcepts.size} concept{selectedConcepts.size !== 1 ? 's' : ''} selected for review
+              {selectedConcepts.size > 0 ? (
+                `${selectedConcepts.size} concept${selectedConcepts.size !== 1 ? 's' : ''} selected for review`
+              ) : (
+                'No concepts selected - this will reset all concepts to "not started"'
+              )}
             </div>
             <button
               onClick={onStartReview}
@@ -253,10 +257,12 @@ function ConceptSelector({
               {startingReview ? (
                 <>
                   <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                  Starting Review...
+                  Updating...
                 </>
-              ) : (
+              ) : selectedConcepts.size > 0 ? (
                 'Start Review'
+              ) : (
+                'Update Selection'
               )}
             </button>
           </div>
@@ -264,14 +270,18 @@ function ConceptSelector({
       )}
 
       {/* Selection Instructions */}
-      {canSelectConcepts && selectedConcepts.size === 0 && (
+      {canSelectConcepts && (
         <div className="mt-6 pt-6 border-t border-gray-100">
           <div className="text-center text-gray-500">
             <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-2">
               <span className="text-blue-600">👆</span>
             </div>
             <p className="text-sm">
-              Click on concepts above to select them for review, then click "Start Review" to begin learning.
+              {selectedConcepts.size > 0 ? (
+                'Click concepts to select/deselect them, then click "Start Review" to begin learning.'
+              ) : (
+                'Click on concepts above to select them for review. You can also deselect previously selected concepts.'
+              )}
             </p>
           </div>
         </div>

@@ -12,30 +12,30 @@ interface AbsorbStageProps {
 function AbsorbStage({ concepts, courseId, courseTitle }: AbsorbStageProps) {
   const [activeConcept, setActiveConcept] = useState<string | null>(null);
 
-  // Filter concepts to only show those chosen for review (status: 'reviewing')
-  const reviewingConcepts = concepts.filter(concept => concept.status === 'reviewing');
+  // Show only concepts marked for reviewing in the Absorb stage
+  const availableConcepts = concepts.filter(concept => concept.status === 'reviewing');
 
   // Set first reviewing concept as active by default
   useEffect(() => {
-    if (reviewingConcepts.length > 0 && !activeConcept) {
-      setActiveConcept(reviewingConcepts[0].title);
+    if (availableConcepts.length > 0 && !activeConcept) {
+      setActiveConcept(availableConcepts[0].title);
     }
-  }, [reviewingConcepts, activeConcept]);
+  }, [availableConcepts, activeConcept]);
 
   const handleActiveConceptChange = (conceptTitle: string) => {
     setActiveConcept(conceptTitle);
   };
 
-  if (reviewingConcepts.length === 0) {
+  if (availableConcepts.length === 0) {
     return (
       <div className="flex-1 flex items-center justify-center">
         <div className="text-center py-12">
           <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
             <span className="text-3xl">📖</span>
           </div>
-          <h3 className="text-xl font-semibold text-gray-900 mb-2">No Concepts Selected for Review</h3>
+          <h3 className="text-xl font-semibold text-gray-900 mb-2">No Concepts Ready for Review</h3>
           <p className="text-gray-600 max-w-md mx-auto">
-            Please select some concepts for review from the previous stage to begin studying.
+            No concepts are marked for reviewing yet. Select concepts from the course overview to start studying.
           </p>
         </div>
       </div>
@@ -49,7 +49,7 @@ function AbsorbStage({ concepts, courseId, courseTitle }: AbsorbStageProps) {
           {/* Study Content */}
           <div className="flex-1 overflow-hidden">
             <StudyContent
-              concepts={reviewingConcepts}
+              concepts={availableConcepts}
               courseId={courseId || ''}
               onActiveConceptChange={handleActiveConceptChange}
             />

@@ -573,6 +573,83 @@ Be supportive but constructively critical. The goal is to help them truly master
                 'error': str(e)
             }
 
+    def generate_concept_summary(self, concept_title: str, course_context: str = "") -> str:
+        """Generate concept summary (non-streaming)"""
+        try:
+            system_message = """You are an AI learning assistant that creates clear, comprehensive explanations of concepts for students.
+
+Create a detailed explanation that includes:
+1. Clear definition or overview
+2. Key principles or components  
+3. Practical examples or applications
+4. Common misconceptions to avoid
+5. How it relates to broader topics
+
+Make it comprehensive but concise (aim for 200-400 words). Use markdown formatting."""
+
+            user_prompt = f"""Concept: {concept_title}
+{f"Course context: {course_context}" if course_context else ""}
+
+Provide a comprehensive explanation:"""
+
+            response = self.client.messages.create(
+                model=self.models['research'],
+                max_tokens=800,
+                temperature=0.7,
+                system=system_message,
+                messages=[{"role": "user", "content": user_prompt}]
+            )
+            
+            return response.content[0].text.strip()
+            
+        except Exception as e:
+            print(f"Error generating concept summary: {e}")
+            return f"Error generating summary for {concept_title}"
+
+    def generate_teaching_questions(self, concept_title: str, summary: str = "") -> List[str]:
+        """Generate teaching questions for Feynman technique (non-streaming)"""
+        try:
+            system_message = """You are an AI learning assistant that creates teaching questions for the Feynman Technique.
+
+Generate 1-3 questions that would help someone practice explaining this concept clearly. Questions should:
+1. Test understanding of core principles
+2. Encourage simple, clear explanations
+3. Identify potential knowledge gaps
+4. Be suitable for teaching to a beginner
+5. Focus on practical application
+
+Return ONLY a JSON array of question strings."""
+
+            context = summary if summary else f"Concept: {concept_title}"
+            user_prompt = f"""Context: {context}
+
+Generate teaching questions for: {concept_title}"""
+
+            response = self.client.messages.create(
+                model=self.models['research'],
+                max_tokens=400,
+                temperature=0.7,
+                system=system_message,
+                messages=[{"role": "user", "content": user_prompt}]
+            )
+            
+            # Parse JSON response
+            import json
+            import re
+            
+            response_text = response.content[0].text.strip()
+            json_match = re.search(r'\[.*\]', response_text, re.DOTALL)
+            if json_match:
+                questions = json.loads(json_match.group(0))
+                return [q for q in questions if isinstance(q, str)][:3]  # Max 3 questions
+            
+            # Fallback if JSON parsing fails
+            return [f"How would you explain {concept_title} to someone who has never heard of it?"]
+            
+        except Exception as e:
+            print(f"Error generating teaching questions: {e}")
+            return [f"How would you explain {concept_title} to someone who has never heard of it?"]
+
     def truncate_context(self, context: str, max_tokens: int = 3000) -> str:
         """Truncate context to fit within token limits"""
         estimated_tokens = self.count_tokens(context)

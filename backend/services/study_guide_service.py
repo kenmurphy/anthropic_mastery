@@ -1,6 +1,7 @@
 from models.cluster import ConversationCluster
 from models.course import Course, CourseConcept
 from services.anthropic_service import AnthropicService
+from services.concept_content_service import ConceptContentService
 
 class StudyGuideService:
     """Service for managing unified study guides (courses + available clusters)"""
@@ -229,22 +230,20 @@ class StudyGuideService:
             if not course:
                 raise ValueError("Course not found")
             
-            # Validate that course is in explore stage
-            if course.current_stage != 'explore':
-                raise ValueError("Course must be in 'explore' stage to start review")
-            
             # Validate that selected concepts exist and are not_started
             valid_concepts = []
             for title in selected_concept_titles:
                 concept = course.get_concept_by_title(title)
                 if not concept:
                     raise ValueError(f"Concept '{title}' not found in course")
-                if concept.status != 'not_started':
-                    raise ValueError(f"Concept '{title}' is not available for selection (status: {concept.status})")
                 valid_concepts.append(concept)
             
-            # Start the review process
-            success = course.start_review(selected_concept_titles)
+            # Initialize services for background content generation
+            anthropic_service = AnthropicService()
+            concept_content_service = ConceptContentService(anthropic_service)
+            
+            # Start the review process with background content generation
+            success = course.start_review(selected_concept_titles, concept_content_service)
             if not success:
                 raise ValueError("Failed to start review process")
             
@@ -252,6 +251,55 @@ class StudyGuideService:
             
         except Exception as e:
             print(f"Error starting course review: {e}")
+            raise e
+
+    @staticmethod
+    def update_concept_selection(course_id, selected_concept_titles):
+        """Update concept selection - set selected concepts to 'reviewing' and unselected to 'not_started'"""
+        try:
+            course = Course.objects(id=course_id).first()
+            if not course:
+                raise ValueError("Course not found")
+            
+            # Update all concepts based on selection
+            for concept in course.concepts:
+                if concept.title in selected_concept_titles:
+                    concept.status = 'reviewing'
+                else:
+                    concept.status = 'not_started'
+                    # Keep summary and technical questions intact as requested
+                    # (no need to clear them)
+            
+            # Save the course with updated concept statuses
+            course.save()
+            
+            return course
+            
+        except Exception as e:
+            print(f"Error updating concept selection: {e}")
+            raise e
+
+    @staticmethod
+    def update_course_stage(course_id, new_stage):
+        """Update the current stage of a course"""
+        try:
+            course = Course.objects(id=course_id).first()
+            if not course:
+                raise ValueError("Course not found")
+            
+            # Validate stage
+            valid_stages = ['explore', 'absorb', 'teach_back']
+            if new_stage not in valid_stages:
+                raise ValueError(f"Invalid stage. Must be one of: {valid_stages}")
+            
+            # Update course stage
+            course.current_stage = new_stage
+            course.save()
+            
+            return course
+            
+        except Exception as e:
+            print(f"Error updating course stage: {e}")
             raise e
 
     @staticmethod
