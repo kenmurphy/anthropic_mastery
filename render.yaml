@@ -15,7 +15,7 @@ services:
       - key: ANTHROPIC_API_KEY
         sync: false
       - key: MONGODB_URI
-        sync: false
+        value: mongodb+srv://kenmurphy121:vpu0pTCOo3dkS3zk@cluster0.qmjyv8q.mongodb.net/claude_db?retryWrites=true&w=majority&tls=true&tlsAllowInvalidCertificates=true&appName=Cluster0
       - key: MONGODB_DB
         value: claude_db
       - key: APP_HOST
