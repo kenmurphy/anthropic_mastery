@@ -14,16 +14,10 @@ services:
         generateValue: true
       - key: ANTHROPIC_API_KEY
         sync: false
-      - key: MONGODB_HOST
-        sync: false
-      - key: MONGODB_USERNAME
-        sync: false
-      - key: MONGODB_PASSWORD
+      - key: MONGODB_URI
         sync: false
       - key: MONGODB_DB
         value: claude_db
-      - key: MONGODB_AUTH_SOURCE
-        value: admin
       - key: APP_HOST
         value: 0.0.0.0
       - key: APP_PORT

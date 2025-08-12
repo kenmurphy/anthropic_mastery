@@ -66,11 +66,8 @@ FLASK_ENV=production
 FLASK_DEBUG=false
 SECRET_KEY=your-production-secret-key-here
 ANTHROPIC_API_KEY=your-anthropic-api-key-here
-MONGODB_HOST=your-atlas-cluster-url
-MONGODB_USERNAME=kenmurphy12
-MONGODB_PASSWORD=your-atlas-password
+MONGODB_URI=mongodb+srv://username:password@cluster0.xxxxx.mongodb.net/claude_db?retryWrites=true&w=majority
 MONGODB_DB=claude_db
-MONGODB_AUTH_SOURCE=admin
 APP_HOST=0.0.0.0
 APP_PORT=10000
 BACKGROUND_CLUSTERING_ENABLED=true
@@ -187,16 +184,14 @@ Should return:
 
 ### Backend (Render)
 
-| Variable            | Description               | Example                   |
-| ------------------- | ------------------------- | ------------------------- |
-| `FLASK_ENV`         | Flask environment         | `production`              |
-| `SECRET_KEY`        | Flask secret key          | `your-secret-key`         |
-| `ANTHROPIC_API_KEY` | Anthropic API key         | `sk-ant-...`              |
-| `MONGODB_HOST`      | MongoDB connection string | `mongodb+srv://...`       |
-| `MONGODB_USERNAME`  | MongoDB username          | `your-username`           |
-| `MONGODB_PASSWORD`  | MongoDB password          | `your-password`           |
-| `MONGODB_DB`        | Database name             | `claude_db`               |
-| `VERCEL_DOMAIN`     | Frontend domain           | `your-project.vercel.app` |
+| Variable            | Description               | Example                                                                   |
+| ------------------- | ------------------------- | ------------------------------------------------------------------------- |
+| `FLASK_ENV`         | Flask environment         | `production`                                                              |
+| `SECRET_KEY`        | Flask secret key          | `your-secret-key`                                                         |
+| `ANTHROPIC_API_KEY` | Anthropic API key         | `sk-ant-...`                                                              |
+| `MONGODB_URI`       | MongoDB connection string | `mongodb+srv://username:password@cluster0.xxxxx.mongodb.net/claude_db...` |
+| `MONGODB_DB`        | Database name             | `claude_db`                                                               |
+| `VERCEL_DOMAIN`     | Frontend domain           | `your-project.vercel.app`                                                 |
 
 ### Frontend (Vercel)
 
