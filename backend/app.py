@@ -21,8 +21,30 @@ def create_app(config_name=None):
     app.config.from_object(config[config_name])
     
     # Enable CORS with specific configuration for SSE
+    # Include both development and production origins
+    allowed_origins = [
+        'http://localhost:3000', 
+        'http://localhost:5173', 
+        'http://localhost:5175', 
+        'http://127.0.0.1:3000', 
+        'http://127.0.0.1:5173', 
+        'http://127.0.0.1:5175'
+    ]
+    
+    # Add production Vercel domain if specified
+    vercel_domain = os.environ.get('VERCEL_DOMAIN')
+    if vercel_domain:
+        allowed_origins.extend([
+            f'https://{vercel_domain}',
+            f'https://{vercel_domain}.vercel.app'
+        ])
+    
+    # Allow all Vercel preview deployments in production
+    if config_name == 'production':
+        allowed_origins.append('https://*.vercel.app')
+    
     CORS(app, 
-         origins=['http://localhost:3000', 'http://localhost:5173', 'http://localhost:5175', 'http://127.0.0.1:3000', 'http://127.0.0.1:5173', 'http://127.0.0.1:5175'],
+         origins=allowed_origins,
          allow_headers=['Content-Type', 'X-User-ID', 'Cache-Control'],
          expose_headers=['Cache-Control'],
          supports_credentials=True)

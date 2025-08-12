@@ -10,3 +10,4 @@ anthropic==0.40.0
 ipdb
 scikit-learn==1.3.0
 numpy==1.24.3
+gunicorn==21.2.0

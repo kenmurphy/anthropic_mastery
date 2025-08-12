@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { buildApiUrl } from '../config/api'
 
 interface Conversation {
   id: string
@@ -28,7 +29,7 @@ function Sidebar({ onStartNewChat, onSelectConversation, currentConversationId, 
   const fetchConversations = async () => {
     setIsLoading(true)
     try {
-      const response = await fetch('http://localhost:5000/api/conversations?limit=20')
+      const response = await fetch(buildApiUrl('/api/conversations?limit=20'))
       
       if (response.ok) {
         const data = await response.json()

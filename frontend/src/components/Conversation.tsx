@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
+import { buildApiUrl } from '../config/api'
 
 interface Message {
   id: string
@@ -37,7 +38,7 @@ function Conversation({ conversationId, onNewConversationCreated }: Conversation
     try {
       if (!currentConversation) {
         // Create new conversation
-        const response = await fetch('http://localhost:5000/api/conversations', {
+        const response = await fetch(buildApiUrl('/api/conversations'), {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -76,7 +77,7 @@ function Conversation({ conversationId, onNewConversationCreated }: Conversation
       // For the first AI response, we need to trigger AI response without adding another user message
       // We'll create a special endpoint or modify the existing one to handle this case
       // For now, let's use the conversation service to stream response directly
-      const response = await fetch(`http://localhost:5000/api/conversations/${conversationId}/stream-response`, {
+      const response = await fetch(buildApiUrl(`/api/conversations/${conversationId}/stream-response`), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -153,7 +154,7 @@ function Conversation({ conversationId, onNewConversationCreated }: Conversation
         } : null)
       }
 
-      const response = await fetch(`http://localhost:5000/api/conversations/${conversationId}/messages`, {
+      const response = await fetch(buildApiUrl(`/api/conversations/${conversationId}/messages`), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -222,7 +223,7 @@ function Conversation({ conversationId, onNewConversationCreated }: Conversation
 
   const refreshConversation = async (conversationId: string) => {
     try {
-      const response = await fetch(`http://localhost:5000/api/conversations/${conversationId}`)
+      const response = await fetch(buildApiUrl(`/api/conversations/${conversationId}`))
 
       if (response.ok) {
         const updatedConversation = await response.json()
@@ -246,7 +247,7 @@ function Conversation({ conversationId, onNewConversationCreated }: Conversation
       // Load existing conversation
       const loadConversation = async () => {
         try {
-          const response = await fetch(`http://localhost:5000/api/conversations/${conversationId}`)
+          const response = await fetch(buildApiUrl(`/api/conversations/${conversationId}`))
           if (response.ok) {
             const conversation = await response.json()
             setCurrentConversation(conversation)
