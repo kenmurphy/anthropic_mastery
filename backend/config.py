@@ -7,15 +7,20 @@ class Config:
     SECRET_KEY = os.environ.get('SECRET_KEY') or 'dev-secret-key'
     
     # MongoDB Configuration
-    MONGODB_SETTINGS = {
-        'host': os.environ.get('MONGODB_HOST', 'localhost'),
-        'port': int(os.environ.get('MONGODB_PORT', 27017)),
-        'db': os.environ.get('MONGODB_DB', 'claude_db'),
-        'username': os.environ.get('MONGODB_USERNAME'),
-        'password': os.environ.get('MONGODB_PASSWORD'),
-        'authentication_source': os.environ.get('MONGODB_AUTH_SOURCE', 'admin')
-    }
-    
+    MONGODB_URI = os.environ.get('MONGODB_URI')
+    if MONGODB_URI:
+        MONGODB_SETTINGS = {'host': MONGODB_URI}
+    else:
+        db_name = os.environ.get('MONGODB_DB', 'claude_db')
+        MONGODB_SETTINGS = {
+            'host': os.environ.get('MONGODB_HOST', 'localhost'),
+            'port': int(os.environ.get('MONGODB_PORT', 27017)),
+            'db': db_name,
+            'username': os.environ.get('MONGODB_USERNAME'),
+            'password': os.environ.get('MONGODB_PASSWORD'),
+            'authentication_source': os.environ.get('MONGODB_AUTH_SOURCE', 'admin'),
+        }
+
     # Application Configuration
     APP_HOST = os.environ.get('APP_HOST', '0.0.0.0')
     APP_PORT = int(os.environ.get('APP_PORT', 10000))
@@ -25,7 +30,7 @@ class Config:
     ANTHROPIC_API_KEY = os.environ.get('ANTHROPIC_API_KEY')
     
     # MongoDB Database Names
-    MONGODB_DB = os.environ.get('MONGODB_DB', 'anthropic_mastery_db')
+    MONGODB_DB = os.environ.get('MONGODB_DB', 'claude_db')
     MONGODB_HOST = os.environ.get('MONGODB_HOST', 'localhost')
     MONGODB_PORT = int(os.environ.get('MONGODB_PORT', 27017))
     MONGODB_USERNAME = os.environ.get('MONGODB_USERNAME')

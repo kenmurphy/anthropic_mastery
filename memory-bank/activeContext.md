@@ -4,7 +4,18 @@
 
 ### CORS Production Fix Complete
 
-**LATEST UPDATE (August 11, 2025)**: Successfully implemented enhanced course generation with topic refinement
+**LATEST UPDATE (August 12, 2025)**: Fixed CORS issues between Vercel frontend and Render backend
+
+Successfully resolved production CORS issues that were preventing the Vercel app (https://anthropic-mastery.vercel.app) from accessing the Flask API on Render (https://anthropic-mastery.onrender.com):
+
+1. **Updated CORS Configuration**: Fixed `backend/app.py` to explicitly include production domains instead of using unsupported wildcard patterns
+2. **Added Environment Variable**: Added `VERCEL_DOMAIN` to `render.yaml` for flexible domain configuration
+3. **Verified Frontend Config**: Confirmed `frontend/vercel.json` has correct API base URL configuration
+4. **Production Ready**: Both frontend and backend now properly configured for cross-origin requests
+
+### Enhanced Course Generation Implementation Complete
+
+**August 11, 2025**: Successfully implemented enhanced course generation with topic refinement
 
 The project has completed a significant enhancement to the course generation system to improve the quality of "original topics":
 

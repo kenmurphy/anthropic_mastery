@@ -116,7 +116,7 @@ docker-compose up -d
 This starts MongoDB with:
 
 - Port: 27017
-- Database: anthropic_mastery_db
+- Database: claude_db
 - Admin user: admin/password123
 - App user: mastery_user/mastery_password
 
@@ -133,7 +133,7 @@ SECRET_KEY=your-secret-key-change-in-production
 # MongoDB Configuration
 MONGODB_HOST=localhost
 MONGODB_PORT=27017
-MONGODB_DB=anthropic_mastery_db
+MONGODB_DB=claude_db
 MONGODB_USERNAME=mastery_user
 MONGODB_PASSWORD=mastery_password
 

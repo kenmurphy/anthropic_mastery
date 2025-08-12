@@ -76,7 +76,7 @@ ANTHROPIC_API_KEY=your-anthropic-api-key
 MONGODB_HOST=your-atlas-connection-string
 MONGODB_USERNAME=your-atlas-username
 MONGODB_PASSWORD=your-atlas-password
-MONGODB_DB=anthropic_mastery_db
+MONGODB_DB=claude_db
 VERCEL_DOMAIN=your-vercel-domain.vercel.app
 ```
 

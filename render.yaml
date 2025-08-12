@@ -21,7 +21,7 @@ services:
       - key: MONGODB_PASSWORD
         sync: false
       - key: MONGODB_DB
-        value: anthropic_mastery_db
+        value: claude_db
       - key: MONGODB_AUTH_SOURCE
         value: admin
       - key: APP_HOST

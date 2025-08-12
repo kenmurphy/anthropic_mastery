@@ -69,7 +69,7 @@ ANTHROPIC_API_KEY=your-anthropic-api-key-here
 MONGODB_HOST=your-atlas-cluster-url
 MONGODB_USERNAME=kenmurphy12
 MONGODB_PASSWORD=your-atlas-password
-MONGODB_DB=anthropic_mastery_db
+MONGODB_DB=claude_db
 MONGODB_AUTH_SOURCE=admin
 APP_HOST=0.0.0.0
 APP_PORT=10000
@@ -195,7 +195,7 @@ Should return:
 | `MONGODB_HOST`      | MongoDB connection string | `mongodb+srv://...`       |
 | `MONGODB_USERNAME`  | MongoDB username          | `your-username`           |
 | `MONGODB_PASSWORD`  | MongoDB password          | `your-password`           |
-| `MONGODB_DB`        | Database name             | `anthropic_mastery_db`    |
+| `MONGODB_DB`        | Database name             | `claude_db`               |
 | `VERCEL_DOMAIN`     | Frontend domain           | `your-project.vercel.app` |
 
 ### Frontend (Vercel)

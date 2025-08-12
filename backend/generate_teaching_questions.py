@@ -30,7 +30,7 @@ def setup_database():
         # Get MongoDB configuration from environment
         mongodb_host = os.getenv('MONGODB_HOST', 'localhost')
         mongodb_port = int(os.getenv('MONGODB_PORT', 27017))
-        mongodb_db = os.getenv('MONGODB_DB', 'anthropic_mastery_db')
+        mongodb_db = os.getenv('MONGODB_DB', 'claude_db')
         mongodb_username = os.getenv('MONGODB_USERNAME', 'mastery_user')
         mongodb_password = os.getenv('MONGODB_PASSWORD', 'mastery_password')
         
