@@ -101,7 +101,7 @@ def create_app(config_name=None):
 if __name__ == '__main__':
     app = create_app()
     host = app.config.get('APP_HOST', '0.0.0.0')
-    port = app.config.get('APP_PORT', 5000)
+    port = app.config.get('APP_PORT', 10000)
     debug = app.config.get('DEBUG', True)
     
     # Check if we're running under a debugger
