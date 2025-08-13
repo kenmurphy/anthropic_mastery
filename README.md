@@ -1,11 +1,11 @@
-# Anthropic Mastery: Complete Technical Documentation
+# Anthropic Mastery: Technical Documentation
 
 ## Technical Approach Overview
 
 ### Tech Stack
 
-- **backend/**: Three-layer architecture using Flask (Python) with MongoDB.
-- **frontend/**: React with TypeScript for type-safe, responsive UI
+- **backend/**: Layered architecture using Flask (Python) with MongoDB.
+- **frontend/**: React with TypeScript
 
 ### Anthropic Integration with Streaming
 
@@ -23,36 +23,9 @@
   - Semantic clustering of conversation topics
   - Knowledge gap detection for targeted learning interventions
 
-### Key Technical Features
-
-- **Production-Ready Architecture**: Layered backend with services, DTOs, and models
-- **Type Safety**: End-to-end TypeScript for reliable development and maintenance
-- **Scalable Data Design**: MongoDB collections optimized for conversation analysis and learning analytics
-- **Real-time User Experience**: Streaming responses with proper error handling and loading states
-
-This platform transforms passive AI interactions into active learning opportunities through intelligent conversation analysis and personalized content generation.
-
----
-
-# Backend Implementation Details
-
-A Flask-based backend for the Anthropic Mastery platform - an AI conversation analysis and learning system that helps users build domain expertise from their AI interactions.
-
-## Project Overview
-
-Anthropic Mastery addresses the challenge of users becoming dependent on AI assistance without building domain expertise. The system analyzes conversation patterns from AI interactions to create structured learning experiences that build long-term mastery.
-
-### Core Features
-
-- **Conversation Intelligence**: AI-powered analysis of conversation patterns to identify knowledge gaps and learning opportunities
-- **Semantic Clustering**: Automatic grouping of conversations into thematic projects and learning areas
-- **Real-time Streaming**: Claude integration with Server-Sent Events for responsive chat experience
-- **Learning Analytics**: Background analysis of technical concepts and conversation patterns
-- **Pattern Recognition**: Detection of repeated questions and dependency mapping
-
 ## Architecture
 
-The application follows a production-ready layered architecture:
+The application follows a layered architecture:
 
 ```
 Frontend (React/TypeScript)

@@ -181,74 +181,69 @@ function ConceptSelector({
         )}
       </div>
 
-      {/* Related Concepts */}
-      <div>
-        <h3 className="text-lg font-medium text-gray-800 mb-4 flex items-center gap-2">
-          <span className="w-2 h-2 bg-purple-500 rounded-full"></span>
-          Related Concepts
-          <span className="text-sm font-normal text-gray-500 ml-2">
-            (AI Suggested)
-          </span>
-          {loadingRelatedTopics && (
-            <div className="w-4 h-4 border-2 border-purple-500 border-t-transparent rounded-full animate-spin ml-2"></div>
+      {/* Related Concepts - Only show after they've been fetched or are loading */}
+      {(loadingRelatedTopics || relatedTopicsError || concepts.some(concept => concept.type === 'related')) && (
+        <div>
+          <h3 className="text-lg font-medium text-gray-800 mb-4 flex items-center gap-2">
+            <span className="w-2 h-2 bg-purple-500 rounded-full"></span>
+            Related Concepts
+            <span className="text-sm font-normal text-gray-500 ml-2">
+              (AI Suggested)
+            </span>
+            {loadingRelatedTopics && (
+              <div className="w-4 h-4 border-2 border-purple-500 border-t-transparent rounded-full animate-spin ml-2"></div>
+            )}
+          </h3>
+          
+          {loadingRelatedTopics && concepts.filter(concept => concept.type === 'related').length === 0 && (
+            <div className="text-center py-8 text-gray-500">
+              <div className="w-8 h-8 border-2 border-purple-500 border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
+              <p className="text-sm">Generating related topics...</p>
+            </div>
           )}
-        </h3>
-        
-        {loadingRelatedTopics && concepts.filter(concept => concept.type === 'related').length === 0 && (
-          <div className="text-center py-8 text-gray-500">
-            <div className="w-8 h-8 border-2 border-purple-500 border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
-            <p className="text-sm">Generating related topics...</p>
-          </div>
-        )}
-        
-        {relatedTopicsError && (
-          <div className="text-center py-6 text-red-600 bg-red-50 rounded-lg border border-red-200">
-            <div className="w-8 h-8 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-2">
-              <span className="text-red-600">⚠️</span>
+          
+          {relatedTopicsError && (
+            <div className="text-center py-6 text-red-600 bg-red-50 rounded-lg border border-red-200">
+              <div className="w-8 h-8 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-2">
+                <span className="text-red-600">⚠️</span>
+              </div>
+              <p className="text-sm font-medium">Failed to load related topics</p>
+              <p className="text-xs text-red-500 mt-1">{relatedTopicsError}</p>
             </div>
-            <p className="text-sm font-medium">Failed to load related topics</p>
-            <p className="text-xs text-red-500 mt-1">{relatedTopicsError}</p>
-          </div>
-        )}
-        
-        {concepts.filter(concept => concept.type === 'related').length > 0 && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {concepts
-              .filter(concept => concept.type === 'related')
-              .map((concept, index) => (
-                <ConceptCard
-                  key={`related-${index}`} 
-                  concept={concept}
-                  isRelated={true}
-                  isSelectable={canSelectConcepts}
-                  isSelected={selectedConcepts.has(concept.title)}
-                  onToggleSelect={() => onToggleConceptSelection(concept.title)}
-                />
-              ))}
-          </div>
-        )}
-        
-        {!loadingRelatedTopics && !relatedTopicsError && concepts.filter(concept => concept.type === 'related').length === 0 && (
-          <div className="text-center py-6 text-gray-400 bg-gray-50 rounded-lg border border-gray-200">
-            <div className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-2">
-              <span className="text-gray-400">🔍</span>
+          )}
+          
+          {!loadingRelatedTopics && concepts.filter(concept => concept.type === 'related').length > 0 && (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {concepts
+                .filter(concept => concept.type === 'related')
+                .map((concept, index) => (
+                  <ConceptCard
+                    key={`related-${index}`} 
+                    concept={concept}
+                    isRelated={true}
+                    isSelectable={canSelectConcepts}
+                    isSelected={selectedConcepts.has(concept.title)}
+                    onToggleSelect={() => onToggleConceptSelection(concept.title)}
+                  />
+                ))}
             </div>
-            <p className="text-sm">No related topics available</p>
-          </div>
-        )}
-      </div>
+          )}
+          
+          {!loadingRelatedTopics && !relatedTopicsError && concepts.filter(concept => concept.type === 'related').length === 0 && (
+            <div className="text-center py-6 text-gray-400 bg-gray-50 rounded-lg border border-gray-200">
+              <div className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-2">
+                <span className="text-gray-400">🔍</span>
+              </div>
+              <p className="text-sm">No related topics available</p>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Update Selection Button */}
       {canSelectConcepts && (
         <div className="mt-6 pt-6 border-t border-gray-100">
-          <div className="flex items-center justify-between">
-            <div className="text-sm text-gray-600">
-              {selectedConcepts.size > 0 ? (
-                `${selectedConcepts.size} concept${selectedConcepts.size !== 1 ? 's' : ''} selected for review`
-              ) : (
-                'No concepts selected - this will reset all concepts to "not started"'
-              )}
-            </div>
+          <div className="flex items-center justify-end">
             <button
               onClick={onStartReview}
               disabled={startingReview}

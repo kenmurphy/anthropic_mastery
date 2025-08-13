@@ -44,7 +44,7 @@ class AnthropicService:
         """
         try:
             # Build conversation messages with system prompt
-            system_message = "You are Claude, a helpful AI assistant created by Anthropic. Provide helpful, accurate, and engaging responses to user questions and requests."
+            system_message = "You are Claude, a helpful AI assistant created by Anthropic. Provide helpful, accurate, and engaging responses to user questions and requests. Use markdown formatting."
             
             # Filter out any existing system messages and use only user/assistant messages
             filtered_messages = []
