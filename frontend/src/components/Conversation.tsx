@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { buildApiUrl } from '../config/api'
+import MarkdownRenderer from './MarkdownRenderer'
 
 interface Message {
   id: string
@@ -294,12 +295,16 @@ function Conversation({ conversationId, onNewConversationCreated }: Conversation
           <div className="flex-1 overflow-y-auto p-4 space-y-4" style={{ backgroundColor: "#FAF9F5"}}>
             {currentConversation.messages?.map((msg) => (
               <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                <div className={`max-w-[70%] rounded-lg p-3 ${
+                <div className={`max-w-[70%] rounded-lg ${
                   msg.role === 'user' 
-                    ? 'bg-blue-600 text-white' 
+                    ? 'bg-blue-600 text-white p-3' 
                     : 'bg-white border border-gray-50 text-gray-900'
                 }`}>
-                  <div className="whitespace-pre-wrap">{msg.content}</div>
+                  {msg.role === 'user' ? (
+                    <div className="whitespace-pre-wrap">{msg.content}</div>
+                  ) : (
+                    <MarkdownRenderer content={msg.content} className="p-3" />
+                  )}
                 </div>
               </div>
             ))}
@@ -307,9 +312,9 @@ function Conversation({ conversationId, onNewConversationCreated }: Conversation
             {/* Streaming Response */}
             {streamingContent && (
               <div className="flex justify-start">
-                <div className="max-w-[70%] bg-white border border-gray-50 text-gray-900 rounded-lg p-3">
-                  <div className="whitespace-pre-wrap">{streamingContent}</div>
-                  <div className="mt-2 flex items-center text-gray-400">
+                <div className="max-w-[70%] bg-white border border-gray-50 text-gray-900 rounded-lg">
+                  <MarkdownRenderer content={streamingContent} className="p-3" />
+                  <div className="px-3 pb-3 flex items-center text-gray-400">
                     <div className="animate-pulse">●</div>
                     <span className="ml-1 text-xs">Claude is typing...</span>
                   </div>
