@@ -10,6 +10,7 @@ function App() {
   const [refreshConversations, setRefreshConversations] = useState<(() => void) | null>(null)
   const [currentTab, setCurrentTab] = useState<'conversation' | 'mastery' | 'course'>('conversation')
   const [currentCourseId, setCurrentCourseId] = useState<string | null>(null)
+  const [currentClusterId, setCurrentClusterId] = useState<string | null>(null)
 
   const handleStartNewChat = () => {
     setCurrentConversationId(null)
@@ -25,14 +26,16 @@ function App() {
     setCurrentTab('mastery')
   }
 
-  const handleViewCourse = (courseId: string) => {
+  const handleViewCourse = (courseId: string, clusterId?: string) => {
     setCurrentCourseId(courseId)
+    setCurrentClusterId(clusterId || null)
     setCurrentTab('course')
   }
 
   const handleBackToMastery = () => {
     setCurrentTab('mastery')
     setCurrentCourseId(null)
+    setCurrentClusterId(null)
   }
 
   const handleRefreshReady = useCallback((refreshFn: () => void) => {
@@ -64,6 +67,7 @@ function App() {
       ) : currentTab === 'course' && currentCourseId ? (
         <CourseView 
           courseId={currentCourseId}
+          clusterId={currentClusterId || undefined}
           onBack={handleBackToMastery}
         />
       ) : (

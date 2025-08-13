@@ -33,7 +33,7 @@ interface ClusteringStatus {
 }
 
 interface ClaudeMasteryProps {
-  onViewCourse: (courseId: string) => void;
+  onViewCourse: (courseId: string, clusterId?: string) => void;
 }
 
 function ClaudeMastery({ onViewCourse }: ClaudeMasteryProps) {
@@ -104,9 +104,9 @@ function ClaudeMastery({ onViewCourse }: ClaudeMasteryProps) {
         return;
       }
 
-      // For clusters, navigate immediately with the cluster ID
-      // The CourseView component will handle the course creation in the background
-      onViewCourse(studyGuide.id);
+      // For clusters, pass empty string as courseId and the cluster ID
+      // CourseView will handle creating a course from the cluster
+      onViewCourse('', studyGuide.id);
     } catch (err) {
       setError('Failed to start study guide');
       console.error('Error starting study guide:', err);

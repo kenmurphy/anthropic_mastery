@@ -20,10 +20,11 @@ interface Course {
 
 interface CourseViewProps {
   courseId: string;
+  clusterId?: string;
   onBack: () => void;
 }
 
-function CourseView({ courseId, onBack }: CourseViewProps) {
+function CourseView({ courseId, clusterId, onBack }: CourseViewProps) {
   const [course, setCourse] = useState<Course | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -35,6 +36,7 @@ function CourseView({ courseId, onBack }: CourseViewProps) {
   const [loadingOriginalTopics, setLoadingOriginalTopics] = useState(false);
   const [originalTopicsError, setOriginalTopicsError] = useState<string | null>(null);
   const [creatingCourse, setCreatingCourse] = useState(false);
+  const [actualCourseId, setActualCourseId] = useState<string>(courseId);
 
   useEffect(() => {
     fetchCourseOrCreateFromCluster();
@@ -69,13 +71,47 @@ function CourseView({ courseId, onBack }: CourseViewProps) {
       setLoading(true);
       setError(null);
       
-      // First, try to fetch as a course
+      // If courseId is empty, create a course from the cluster
+      if (!courseId || courseId === '') {
+        if (!clusterId) {
+          setError('No cluster ID provided for course creation');
+          setLoading(false);
+          return;
+        }
+        
+        // Create a course from the cluster
+        setCreatingCourse(true);
+        setLoadingOriginalTopics(true);
+        setOriginalTopicsError(null);
+        
+        const createResponse = await fetch(buildApiUrl(`/api/study-guides/${clusterId}/start`), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ type: 'cluster' })
+        });
+
+        if (createResponse.ok) {
+          const createData = await createResponse.json();
+          setCourse(createData.course);
+          setActualCourseId(createData.course.id); // Save the actual course ID
+          setLoadingOriginalTopics(false);
+        } else {
+          const errorData = await createResponse.json();
+          setOriginalTopicsError(errorData.error || 'Failed to create course from cluster');
+          setLoadingOriginalTopics(false);
+          setError('Failed to create course from cluster');
+        }
+        return;
+      }
+      
+      // Try to fetch as an existing course
       const courseResponse = await fetch(buildApiUrl(`/api/courses/${courseId}`));
       
       if (courseResponse.ok) {
         // It's an existing course
         const data = await courseResponse.json();
         setCourse(data.course);
+        setActualCourseId(data.course.id);
         return;
       }
       
@@ -94,6 +130,7 @@ function CourseView({ courseId, onBack }: CourseViewProps) {
       if (createResponse.ok) {
         const createData = await createResponse.json();
         setCourse(createData.course);
+        setActualCourseId(createData.course.id); // Save the actual course ID
         setLoadingOriginalTopics(false);
       } else {
         const errorData = await createResponse.json();
@@ -205,7 +242,7 @@ function CourseView({ courseId, onBack }: CourseViewProps) {
       setStartingReview(true);
       
       // First, update the concept selection (allows deselection)
-      const updateResponse = await fetch(buildApiUrl(`/api/courses/${courseId}/update-selection`), {
+      const updateResponse = await fetch(buildApiUrl(`/api/courses/${actualCourseId}/update-selection`), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -221,7 +258,7 @@ function CourseView({ courseId, onBack }: CourseViewProps) {
         
         // If there are selected concepts, start the review process
         if (selectedConcepts.size > 0) {
-          const reviewResponse = await fetch(buildApiUrl(`/api/courses/${courseId}/start-review`), {
+          const reviewResponse = await fetch(buildApiUrl(`/api/courses/${actualCourseId}/start-review`), {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
