@@ -27,9 +27,11 @@ function App() {
   }
 
   const handleViewCourse = (courseId: string, clusterId?: string) => {
+    console.log('App.handleViewCourse called with:', { courseId, clusterId });
     setCurrentCourseId(courseId)
     setCurrentClusterId(clusterId || null)
     setCurrentTab('course')
+    console.log('App state updated:', { currentTab: 'course', currentCourseId: courseId, currentClusterId: clusterId });
   }
 
   const handleBackToMastery = () => {
@@ -64,7 +66,7 @@ function App() {
           conversationId={currentConversationId}
           onNewConversationCreated={handleNewConversationCreated}
         />
-      ) : currentTab === 'course' && currentCourseId ? (
+      ) : currentTab === 'course' && currentCourseId !== null ? (
         <CourseView 
           courseId={currentCourseId}
           clusterId={currentClusterId || undefined}

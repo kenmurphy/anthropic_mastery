@@ -127,7 +127,7 @@ class Course(Document):
     meta = {
         'collection': 'courses',
         'indexes': [
-            'source_cluster_id',
+            {'fields': ['source_cluster_id'], 'unique': True, 'name': 'source_cluster_id_unique'},
             'created_at',
             'updated_at',
         ]

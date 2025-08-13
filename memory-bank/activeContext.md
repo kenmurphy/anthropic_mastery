@@ -2,16 +2,30 @@
 
 ## Current Work Focus
 
-### Duplicate Course Creation Fix Complete
+### Duplicate API Calls and Course Creation Fix Complete
 
-**LATEST UPDATE (August 13, 2025)**: Fixed duplicate course creation issue in ClaudeMastery component
+**LATEST UPDATE (August 13, 2025)**: Completely resolved duplicate `/start` endpoint calls and course creation issues
 
-Successfully resolved the issue where clicking "Study this topic" on cluster cards would create multiple courses with the same name:
+Successfully fixed the issue where clicking "Study This Topic" would call the `/start` endpoint twice and create duplicate courses:
 
-1. **Backend Duplicate Prevention**: Added name-based duplicate check in `StudyGuideService.create_or_get_course()` to prevent courses with identical names
-2. **Frontend Request Deduplication**: Added `creatingCourse` state in CourseView component to prevent multiple concurrent course creation requests
-3. **Cleanup Script**: Created `backend/clear_courses.py` script to safely delete all courses when needed
-4. **Race Condition Prevention**: Implemented proper request sequencing to handle rapid button clicks and navigation
+#### Frontend Fixes:
+
+1. **Duplicate API Call Prevention**: Fixed `CourseView.fetchCourseOrCreateFromCluster()` function that had two separate code paths both calling the `/start` endpoint
+2. **Request Deduplication**: Enhanced `creatingCourse` state to prevent multiple concurrent course creation requests
+3. **Race Condition Prevention**: Implemented proper request sequencing to handle rapid button clicks and navigation
+
+#### Backend Database Integrity:
+
+1. **Unique Index Implementation**: Added unique index on `source_cluster_id` field in Course model to prevent multiple courses from same cluster
+2. **Exception Handling**: Updated `StudyGuideService.create_or_get_course()` to catch `NotUniqueError` and return existing course instead of failing
+3. **Database Cleanup**: Created and ran `backend/cleanup_duplicate_courses.py` to remove existing duplicate courses (cleaned up 2 duplicate courses)
+4. **Index Verification**: Successfully applied unique index `source_cluster_id_unique` to MongoDB courses collection
+
+#### Technical Implementation:
+
+- **Model Update**: Course model now has `{'fields': ['source_cluster_id'], 'unique': True, 'name': 'source_cluster_id_unique'}` index
+- **Service Layer**: StudyGuideService handles duplicate creation attempts gracefully by returning existing courses
+- **Database Integrity**: MongoDB now enforces uniqueness at the database level, preventing any duplicate course creation
 
 ### CORS Production Fix Complete
 

@@ -40,7 +40,7 @@ function CourseView({ courseId, clusterId, onBack }: CourseViewProps) {
 
   useEffect(() => {
     fetchCourseOrCreateFromCluster();
-  }, [courseId]);
+  }, [courseId, clusterId]);
 
   useEffect(() => {
     if (course) {
@@ -115,28 +115,31 @@ function CourseView({ courseId, clusterId, onBack }: CourseViewProps) {
         return;
       }
       
-      // If course fetch failed, it might be a cluster ID
-      // Try to create a course from the cluster
-      setCreatingCourse(true);
-      setLoadingOriginalTopics(true);
-      setOriginalTopicsError(null);
-      
-      const createResponse = await fetch(buildApiUrl(`/api/study-guides/${courseId}/start`), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type: 'cluster' })
-      });
+      // If course fetch failed and we have a clusterId, try to create from cluster
+      if (clusterId) {
+        setCreatingCourse(true);
+        setLoadingOriginalTopics(true);
+        setOriginalTopicsError(null);
+        
+        const createResponse = await fetch(buildApiUrl(`/api/study-guides/${clusterId}/start`), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ type: 'cluster' })
+        });
 
-      if (createResponse.ok) {
-        const createData = await createResponse.json();
-        setCourse(createData.course);
-        setActualCourseId(createData.course.id); // Save the actual course ID
-        setLoadingOriginalTopics(false);
+        if (createResponse.ok) {
+          const createData = await createResponse.json();
+          setCourse(createData.course);
+          setActualCourseId(createData.course.id); // Save the actual course ID
+          setLoadingOriginalTopics(false);
+        } else {
+          const errorData = await createResponse.json();
+          setOriginalTopicsError(errorData.error || 'Failed to create course from cluster');
+          setLoadingOriginalTopics(false);
+          setError('Failed to create course from cluster');
+        }
       } else {
-        const errorData = await createResponse.json();
-        setOriginalTopicsError(errorData.error || 'Failed to create course from cluster');
-        setLoadingOriginalTopics(false);
-        setError('Failed to load course or create from cluster');
+        setError('Course not found and no cluster ID provided');
       }
     } catch (err) {
       setError('Failed to load course. Make sure the backend server is running.');

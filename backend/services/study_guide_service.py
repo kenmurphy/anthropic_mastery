@@ -4,6 +4,7 @@ from services.anthropic_service import AnthropicService
 from services.concept_content_service import ConceptContentService
 from bson import ObjectId
 from bson.errors import InvalidId
+from mongoengine.errors import NotUniqueError
 
 class StudyGuideService:
     """Service for managing unified study guides (courses + available clusters)"""
@@ -121,8 +122,20 @@ class StudyGuideService:
                     source_cluster_id=item_id,
                     concepts=original_concepts
                 )
-                course.save()
-                return course
+                
+                try:
+                    course.save()
+                    return course
+                except NotUniqueError:
+                    # Another request created a course with the same source_cluster_id
+                    # Return the existing course instead
+                    existing_course = Course.objects(source_cluster_id=item_id).first()
+                    if existing_course:
+                        print(f"Course already exists for cluster {item_id}, returning existing course")
+                        return existing_course
+                    else:
+                        # This shouldn't happen, but handle it gracefully
+                        raise ValueError("Failed to create course due to duplicate constraint, but existing course not found")
             
             else:
                 raise ValueError("Invalid item type. Must be 'course' or 'cluster'")

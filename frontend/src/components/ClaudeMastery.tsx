@@ -97,15 +97,18 @@ function ClaudeMastery({ onViewCourse }: ClaudeMasteryProps) {
   };
 
   const handleStartStudy = async (studyGuide: StudyGuide) => {
+    console.log('handleStartStudy called with:', studyGuide);
     try {
       if (studyGuide.type === 'course') {
         // Already a course, navigate directly
+        console.log('Navigating to existing course:', studyGuide.id);
         onViewCourse(studyGuide.id);
         return;
       }
 
       // For clusters, pass empty string as courseId and the cluster ID
       // CourseView will handle creating a course from the cluster
+      console.log('Creating course from cluster:', studyGuide.id);
       onViewCourse('', studyGuide.id);
     } catch (err) {
       setError('Failed to start study guide');
