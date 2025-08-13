@@ -34,6 +34,7 @@ function CourseView({ courseId, onBack }: CourseViewProps) {
   const [relatedTopicsError, setRelatedTopicsError] = useState<string | null>(null);
   const [loadingOriginalTopics, setLoadingOriginalTopics] = useState(false);
   const [originalTopicsError, setOriginalTopicsError] = useState<string | null>(null);
+  const [creatingCourse, setCreatingCourse] = useState(false);
 
   useEffect(() => {
     fetchCourseOrCreateFromCluster();
@@ -58,6 +59,12 @@ function CourseView({ courseId, onBack }: CourseViewProps) {
   }, [course?.id]); // Only trigger when course ID changes
 
   const fetchCourseOrCreateFromCluster = async () => {
+    // Prevent multiple concurrent requests
+    if (creatingCourse) {
+      console.log('Course creation already in progress, skipping duplicate request');
+      return;
+    }
+
     try {
       setLoading(true);
       setError(null);
@@ -74,6 +81,7 @@ function CourseView({ courseId, onBack }: CourseViewProps) {
       
       // If course fetch failed, it might be a cluster ID
       // Try to create a course from the cluster
+      setCreatingCourse(true);
       setLoadingOriginalTopics(true);
       setOriginalTopicsError(null);
       
@@ -99,6 +107,7 @@ function CourseView({ courseId, onBack }: CourseViewProps) {
       console.error('Error fetching course or creating from cluster:', err);
     } finally {
       setLoading(false);
+      setCreatingCourse(false);
     }
   };
 

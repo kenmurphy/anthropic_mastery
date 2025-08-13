@@ -2,6 +2,17 @@
 
 ## Current Work Focus
 
+### Duplicate Course Creation Fix Complete
+
+**LATEST UPDATE (August 13, 2025)**: Fixed duplicate course creation issue in ClaudeMastery component
+
+Successfully resolved the issue where clicking "Study this topic" on cluster cards would create multiple courses with the same name:
+
+1. **Backend Duplicate Prevention**: Added name-based duplicate check in `StudyGuideService.create_or_get_course()` to prevent courses with identical names
+2. **Frontend Request Deduplication**: Added `creatingCourse` state in CourseView component to prevent multiple concurrent course creation requests
+3. **Cleanup Script**: Created `backend/clear_courses.py` script to safely delete all courses when needed
+4. **Race Condition Prevention**: Implemented proper request sequencing to handle rapid button clicks and navigation
+
 ### CORS Production Fix Complete
 
 **LATEST UPDATE (August 12, 2025)**: Fixed CORS issues between Vercel frontend and Render backend

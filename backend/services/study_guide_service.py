@@ -2,6 +2,8 @@ from models.cluster import ConversationCluster
 from models.course import Course, CourseConcept
 from services.anthropic_service import AnthropicService
 from services.concept_content_service import ConceptContentService
+from bson import ObjectId
+from bson.errors import InvalidId
 
 class StudyGuideService:
     """Service for managing unified study guides (courses + available clusters)"""
@@ -62,10 +64,16 @@ class StudyGuideService:
                 if not cluster:
                     raise ValueError("Cluster not found")
                 
-                # Check if course already exists (shouldn't happen with filtering, but safety check)
+                # Check if course already exists by source_cluster_id
                 existing_course = Course.objects(source_cluster_id=item_id).first()
                 if existing_course:
                     return existing_course
+                
+                # Check if course already exists by name (label) to prevent duplicates
+                existing_course_by_name = Course.objects(label=cluster.label).first()
+                if existing_course_by_name:
+                    print(f"Found existing course with same name: {cluster.label}, returning existing course")
+                    return existing_course_by_name
                 
                 anthropic_service = AnthropicService()
                 
@@ -125,8 +133,15 @@ class StudyGuideService:
     
     @staticmethod
     def get_course_by_id(course_id):
-        """Get course by ID immediately without generating related topics"""
+        """Get course by ID with ObjectId validation"""
         try:
+            # Validate that course_id is a valid ObjectId
+            try:
+                ObjectId(course_id)
+            except (InvalidId, TypeError):
+                # Not a valid ObjectId, likely a cluster_id
+                raise ValueError("Invalid course ID format")
+            
             course = Course.objects(id=course_id).first()
             if not course:
                 raise ValueError("Course not found")

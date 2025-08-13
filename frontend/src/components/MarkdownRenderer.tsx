@@ -108,7 +108,7 @@ function MarkdownRenderer({ content, className = '' }: MarkdownRendererProps) {
           },
           ol(props) {
             return (
-              <ol className="list-decimal list-inside mb-3 space-y-1 text-gray-700">
+              <ol className="list-decimal list-outside mb-3 space-y-1 text-gray-700 ml-6">
                 {props.children}
               </ol>
             );

@@ -190,12 +190,9 @@ function ConceptSelector({
             <span className="text-sm font-normal text-gray-500 ml-2">
               (AI Suggested)
             </span>
-            {loadingRelatedTopics && (
-              <div className="w-4 h-4 border-2 border-purple-500 border-t-transparent rounded-full animate-spin ml-2"></div>
-            )}
           </h3>
           
-          {loadingRelatedTopics && concepts.filter(concept => concept.type === 'related').length === 0 && (
+          {loadingRelatedTopics && (
             <div className="text-center py-8 text-gray-500">
               <div className="w-8 h-8 border-2 border-purple-500 border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
               <p className="text-sm">Generating related topics...</p>
